@@ -29,16 +29,26 @@ docker build -t noriter-api .
 | CORS_ALLOWED_ORIGINS | http://localhost:5173 | 쉼표 구분. 운영은 https://<domain> |
 | PORT | 8080 | |
 
-## 구조
+## 구조 — 모듈러 모놀리스 (Spring Modulith 2.1)
+
+`games.noriter.api` 바로 아래 패키지 하나가 모듈 하나다. 모듈 경계는 `ModularityTests` 가 검증한다.
 
 ```
-src/main/java/games/noriter/api/
-  NoriterApiApplication.java
-  config/SecurityConfig.java     공개 경로: /actuator/health, /api/public/**. 나머지 인증.
-src/main/resources/
-  application.yml
-  db/migration/V1__init.sql      app_user, game_score
+games.noriter.api
+  config/    OPEN 모듈. SecurityConfig 등 공통 설정. 누구나 참조 가능.
+  user/      소셜 로그인 계정. 공개 API: UserService, UserSummary
+  score/     점수 제출·리더보드. 공개 API: ScoreService, ScoreSubmitted(이벤트), LeaderboardEntry
+             GET /api/public/leaderboard/{gameId}?limit=
+  comment/   (예약) 댓글·신고
+src/main/resources/db/migration/V1__init.sql   app_user, game_score
 ```
+
+모듈 규칙:
+- 엔티티·리포지토리는 package-private. 다른 모듈에는 `*Service` 와 record(DTO) 만 public 으로 노출.
+- 다른 모듈 엔티티를 JPA 연관으로 잡지 않는다. id(Long) 만 보관 (예: `GameScore.userId`).
+- 모듈 간 부수효과는 도메인 이벤트로 (`ApplicationEventPublisher` + `@ApplicationModuleListener`). 이벤트 발행 기록은 `event_publication` 테이블 (현재 startup schema-initialization, 나중에 Flyway 로 이관).
+- 모듈 단위 테스트는 `@ApplicationModuleTest` + 의존 모듈 `@MockitoBean`. DB FK 때문에 필요한 행은 JdbcTemplate 로 직접 넣는다.
+- `./gradlew test` 후 `build/spring-modulith-docs/` 에 모듈 다이어그램(PlantUML) 생성.
 
 ## 규칙
 
