@@ -76,7 +76,7 @@ public class RoomService {
     public RoomSnapshot start(String roomId, String playerId) {
         var room = rooms.require(roomId);
         var startAt = Instant.now(clock).plus(COUNTDOWN);
-        room.countdown(playerId, startAt, room.spec().seeded() ? random.nextLong() : 0L);
+        room.countdown(playerId, startAt, room.spec().seeded() ? (random.nextInt(Integer.MAX_VALUE - 1) + 1) : 0L);
         scheduler.schedule(() -> {
             if (room.play()) publish(room);
         }, startAt);
