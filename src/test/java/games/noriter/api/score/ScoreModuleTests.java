@@ -13,7 +13,6 @@ import org.mockito.Mockito;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** score 모듈만 띄운다. 의존 모듈(user) 은 목으로 대체. */
 @ApplicationModuleTest
 @ActiveProfiles("test")
 class ScoreModuleTests {

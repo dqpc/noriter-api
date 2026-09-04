@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 공개 리더보드 조회. 점수 제출 API 는 인증 방식이 정해진 뒤 /api/scores 로 추가한다. */
 @RestController
 @RequestMapping("/api/public/leaderboard")
 class LeaderboardController {

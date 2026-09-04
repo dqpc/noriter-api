@@ -11,11 +11,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-/**
- * 기본 보안 설정.
- * - 공개: 헬스체크, /api/public/** (리더보드 조회 등)
- * - 나머지 /api/** 는 인증 필요. 로그인 방식(OAuth2 + 세션/JWT)은 아직 미정.
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
