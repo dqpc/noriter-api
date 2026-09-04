@@ -1,6 +1,9 @@
 package games.noriter.api.room;
 
 import games.noriter.api.game.GameCatalog;
+import games.noriter.api.room.domain.Room;
+import games.noriter.api.room.domain.RoomBroadcaster;
+import games.noriter.api.room.domain.RoomRepository;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -25,7 +28,7 @@ public class RoomService {
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
-    RoomService(RoomRepository rooms, GameCatalog games, List<RoomBroadcaster> broadcasters,
+    public RoomService(RoomRepository rooms, GameCatalog games, List<RoomBroadcaster> broadcasters,
                 TaskScheduler scheduler, Clock clock) {
         this.rooms = rooms;
         this.games = games;

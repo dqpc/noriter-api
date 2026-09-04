@@ -1,13 +1,16 @@
-package games.noriter.api.room;
+package games.noriter.api.room.web;
 
+import games.noriter.api.room.RoomException;
+import games.noriter.api.room.RoomService;
+import games.noriter.api.room.infra.RoomSessions;
+import games.noriter.api.room.web.dto.ClientMessage;
+import games.noriter.api.room.web.dto.ServerMessage;
 import java.io.IOException;
-import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
@@ -31,7 +34,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
             return;
         }
         sessions.add(roomId, session);
-        sessions.send(session, Map.of("type", "hello", "playerId", session.getId()));
+        sessions.send(session, new ServerMessage.Hello(session.getId()));
     }
 
     @Override
@@ -39,20 +42,20 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
         var roomId = roomId(session);
         var playerId = session.getId();
         try {
-            JsonNode msg = json.readTree(message.getPayload());
-            switch (msg.path("type").asText()) {
-                case "join" -> rooms.join(roomId, playerId, msg.path("nickname").asText("player"));
-                case "settings" -> {
-                    if (msg.has("maxPlayers")) rooms.setMaxPlayers(roomId, playerId, msg.path("maxPlayers").asInt());
-                    if (msg.has("options")) rooms.setOptions(roomId, playerId, toMap(msg.path("options")));
+            switch (json.readValue(message.getPayload(), ClientMessage.class)) {
+                case ClientMessage.Join m -> rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname());
+                case ClientMessage.Settings m -> {
+                    if (m.maxPlayers() != null) rooms.setMaxPlayers(roomId, playerId, m.maxPlayers());
+                    if (m.options() != null) rooms.setOptions(roomId, playerId, m.options());
                 }
-                case "start" -> rooms.start(roomId, playerId);
-                case "score" -> rooms.score(roomId, playerId, msg.path("score").asLong());
-                case "finish" -> rooms.finish(roomId, playerId, msg.path("score").asLong());
-                default -> sessions.send(session, Map.of("type", "error", "message", "unknown message type"));
+                case ClientMessage.Start m -> rooms.start(roomId, playerId);
+                case ClientMessage.Score m -> rooms.score(roomId, playerId, m.score());
+                case ClientMessage.Finish m -> rooms.finish(roomId, playerId, m.score());
             }
         } catch (RoomException e) {
-            sessions.send(session, Map.of("type", "error", "message", e.getMessage()));
+            sessions.send(session, new ServerMessage.Error(e.getMessage()));
+        } catch (RuntimeException e) {
+            sessions.send(session, new ServerMessage.Error("invalid message"));
         }
     }
 
@@ -61,12 +64,6 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
         var roomId = roomId(session);
         sessions.remove(roomId, session);
         rooms.leave(roomId, session.getId());
-    }
-
-    private Map<String, Object> toMap(JsonNode node) {
-        Map<String, Object> out = new java.util.LinkedHashMap<>();
-        node.properties().forEach(e -> out.put(e.getKey(), json.convertValue(e.getValue(), Object.class)));
-        return out;
     }
 
     private static String roomId(WebSocketSession session) {

@@ -1,5 +1,6 @@
-package games.noriter.api.user;
+package games.noriter.api.user.domain;
 
+import games.noriter.api.user.UserSummary;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -8,7 +9,7 @@ import jakarta.persistence.Id;
 import java.time.Instant;
 
 @Entity
-class AppUser {
+public class AppUser {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,20 +29,20 @@ class AppUser {
 
     protected AppUser() {}
 
-    AppUser(String provider, String providerId, String nickname) {
+    public AppUser(String provider, String providerId, String nickname) {
         this.provider = provider;
         this.providerId = providerId;
         this.nickname = nickname;
         this.createdAt = Instant.now();
     }
 
-    Long getId() { return id; }
-    String getProvider() { return provider; }
-    String getProviderId() { return providerId; }
-    String getNickname() { return nickname; }
-    Instant getCreatedAt() { return createdAt; }
+    public Long getId() { return id; }
+    public String getProvider() { return provider; }
+    public String getProviderId() { return providerId; }
+    public String getNickname() { return nickname; }
+    public Instant getCreatedAt() { return createdAt; }
 
-    UserSummary toSummary() {
+    public UserSummary toSummary() {
         return new UserSummary(id, nickname);
     }
 }

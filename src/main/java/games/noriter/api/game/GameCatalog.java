@@ -1,11 +1,13 @@
 package games.noriter.api.game;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -13,15 +15,23 @@ public class GameCatalog {
 
     private final Map<String, GameSpec> specs = new LinkedHashMap<>();
 
+    public GameCatalog(@Value("${noriter.game.dev-options:false}") boolean devOptions) {
+        this(List.of(game2048(devOptions)));
+    }
+
     public GameCatalog() {
-        this(List.of(
-                new GameSpec("2048", "2048", 1, 4, 8, Duration.ofMinutes(3), true, true,
-                        Map.of("target", List.of(512, 1024, 2048)),
-                        Map.of("target", 2048))));
+        this(false);
     }
 
     GameCatalog(Collection<GameSpec> initial) {
         initial.forEach(s -> specs.put(s.id(), s));
+    }
+
+    private static GameSpec game2048(boolean devOptions) {
+        var targets = new ArrayList<Object>(List.of(512, 1024, 2048));
+        if (devOptions) targets.add(0, 64);
+        return new GameSpec("2048", "2048", 1, 4, 8, Duration.ofMinutes(3), true, true,
+                Map.of("target", List.copyOf(targets)), Map.of("target", 2048));
     }
 
     public Optional<GameSpec> find(String id) {

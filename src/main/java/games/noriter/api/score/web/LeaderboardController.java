@@ -1,5 +1,7 @@
-package games.noriter.api.score;
+package games.noriter.api.score.web;
 
+import games.noriter.api.score.ScoreService;
+import games.noriter.api.score.web.dto.LeaderboardEntryResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,9 +20,11 @@ class LeaderboardController {
     }
 
     @GetMapping
-    List<LeaderboardEntry> leaderboard(
+    List<LeaderboardEntryResponse> leaderboard(
             @PathVariable String gameId,
             @RequestParam(defaultValue = "20") int limit) {
-        return scores.leaderboard(gameId, Math.min(Math.max(limit, 1), 100));
+        return scores.leaderboard(gameId, Math.min(Math.max(limit, 1), 100)).stream()
+                .map(LeaderboardEntryResponse::from)
+                .toList();
     }
 }

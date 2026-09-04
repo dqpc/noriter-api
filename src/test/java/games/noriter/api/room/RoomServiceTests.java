@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import games.noriter.api.game.GameCatalog;
+import games.noriter.api.room.infra.InMemoryRoomRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -35,7 +36,7 @@ class RoomServiceTests {
             @Override public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, Instant startTime, java.time.Duration delay) { throw new UnsupportedOperationException(); }
             @Override public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, java.time.Duration delay) { throw new UnsupportedOperationException(); }
         };
-        service = new RoomService(new RoomRepository(), new GameCatalog(), List.of(broadcasts::add),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(), List.of(broadcasts::add),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 

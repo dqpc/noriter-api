@@ -1,5 +1,9 @@
-package games.noriter.api.room;
+package games.noriter.api.room.infra;
 
+import games.noriter.api.room.RoomSnapshot;
+import games.noriter.api.room.domain.RoomBroadcaster;
+import games.noriter.api.room.web.dto.RoomResponse;
+import games.noriter.api.room.web.dto.ServerMessage;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -13,7 +17,7 @@ import org.springframework.web.socket.WebSocketSession;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
-class RoomSessions implements RoomBroadcaster {
+public class RoomSessions implements RoomBroadcaster {
 
     private static final Logger log = LoggerFactory.getLogger(RoomSessions.class);
 
@@ -24,11 +28,11 @@ class RoomSessions implements RoomBroadcaster {
         this.json = json;
     }
 
-    void add(String roomId, WebSocketSession session) {
+    public void add(String roomId, WebSocketSession session) {
         byRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArraySet<>()).add(session);
     }
 
-    void remove(String roomId, WebSocketSession session) {
+    public void remove(String roomId, WebSocketSession session) {
         var set = byRoom.get(roomId);
         if (set == null) return;
         set.remove(session);
@@ -39,11 +43,11 @@ class RoomSessions implements RoomBroadcaster {
     public void broadcast(RoomSnapshot snapshot) {
         var set = byRoom.get(snapshot.id());
         if (set == null) return;
-        var payload = Map.of("type", "room", "room", snapshot);
+        var payload = new ServerMessage.RoomUpdate(RoomResponse.from(snapshot));
         set.forEach(s -> send(s, payload));
     }
 
-    void send(WebSocketSession session, Object payload) {
+    public void send(WebSocketSession session, ServerMessage payload) {
         try {
             synchronized (session) {
                 if (session.isOpen()) session.sendMessage(new TextMessage(json.writeValueAsString(payload)));

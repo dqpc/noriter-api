@@ -1,4 +1,4 @@
-package games.noriter.api.room;
+package games.noriter.api.room.web;
 
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;

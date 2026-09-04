@@ -1,4 +1,4 @@
-package games.noriter.api.score;
+package games.noriter.api.score.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,7 +8,7 @@ import jakarta.persistence.Id;
 import java.time.Instant;
 
 @Entity
-class GameScore {
+public class GameScore {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,16 +29,16 @@ class GameScore {
 
     protected GameScore() {}
 
-    GameScore(String gameId, Long userId, long score) {
+    public GameScore(String gameId, Long userId, long score) {
         this.gameId = gameId;
         this.userId = userId;
         this.score = score;
         this.createdAt = Instant.now();
     }
 
-    Long getId() { return id; }
-    String getGameId() { return gameId; }
-    Long getUserId() { return userId; }
-    long getScore() { return score; }
-    Instant getCreatedAt() { return createdAt; }
+    public Long getId() { return id; }
+    public String getGameId() { return gameId; }
+    public Long getUserId() { return userId; }
+    public long getScore() { return score; }
+    public Instant getCreatedAt() { return createdAt; }
 }
