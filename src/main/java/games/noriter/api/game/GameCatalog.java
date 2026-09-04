@@ -15,7 +15,9 @@ public class GameCatalog {
 
     public GameCatalog() {
         this(List.of(
-                new GameSpec("2048", "2048", 1, 4, 8, Duration.ofMinutes(3), true, true)));
+                new GameSpec("2048", "2048", 1, 4, 8, Duration.ofMinutes(3), true, true,
+                        Map.of("target", List.of(512, 1024, 2048)),
+                        Map.of("target", 2048))));
     }
 
     GameCatalog(Collection<GameSpec> initial) {

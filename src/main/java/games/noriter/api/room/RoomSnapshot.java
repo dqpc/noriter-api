@@ -2,6 +2,7 @@ package games.noriter.api.room;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 public record RoomSnapshot(
         String id,
@@ -9,6 +10,7 @@ public record RoomSnapshot(
         RoomStatus status,
         String hostId,
         int maxPlayers,
+        Map<String, Object> options,
         long seed,
         Instant startAt,
         Instant endAt,

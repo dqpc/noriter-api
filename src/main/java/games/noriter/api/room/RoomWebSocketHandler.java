@@ -42,7 +42,10 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
             JsonNode msg = json.readTree(message.getPayload());
             switch (msg.path("type").asText()) {
                 case "join" -> rooms.join(roomId, playerId, msg.path("nickname").asText("player"));
-                case "settings" -> rooms.setMaxPlayers(roomId, playerId, msg.path("maxPlayers").asInt());
+                case "settings" -> {
+                    if (msg.has("maxPlayers")) rooms.setMaxPlayers(roomId, playerId, msg.path("maxPlayers").asInt());
+                    if (msg.has("options")) rooms.setOptions(roomId, playerId, toMap(msg.path("options")));
+                }
                 case "start" -> rooms.start(roomId, playerId);
                 case "score" -> rooms.score(roomId, playerId, msg.path("score").asLong());
                 case "finish" -> rooms.finish(roomId, playerId, msg.path("score").asLong());
@@ -58,6 +61,12 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
         var roomId = roomId(session);
         sessions.remove(roomId, session);
         rooms.leave(roomId, session.getId());
+    }
+
+    private Map<String, Object> toMap(JsonNode node) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        node.properties().forEach(e -> out.put(e.getKey(), json.convertValue(e.getValue(), Object.class)));
+        return out;
     }
 
     private static String roomId(WebSocketSession session) {

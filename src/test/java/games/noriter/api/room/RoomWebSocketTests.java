@@ -83,6 +83,10 @@ class RoomWebSocketTests {
         guest.send(Map.of("type", "settings", "maxPlayers", 2));
         assertThat(guest.next().get("type").asText()).isEqualTo("error");
 
+        host.send(Map.of("type", "settings", "options", Map.of("target", 512)));
+        assertThat(guest.nextRoom().get("options").get("target").asInt()).isEqualTo(512);
+        host.nextRoom();
+
         host.send(Map.of("type", "start"));
         var countdown = guest.nextRoom();
         assertThat(countdown.get("status").asText()).isEqualTo("COUNTDOWN");
