@@ -24,6 +24,8 @@ server:
 noriter:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  game:
+    dev-options: ${NORITER_DEV_OPTIONS:false}
 
 management:
   endpoints:

@@ -1,5 +1,7 @@
 package games.noriter.api.user;
 
+import games.noriter.api.user.domain.AppUser;
+import games.noriter.api.user.infra.AppUserRepository;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;

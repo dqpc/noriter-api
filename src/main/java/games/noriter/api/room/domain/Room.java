@@ -1,4 +1,8 @@
-package games.noriter.api.room;
+package games.noriter.api.room.domain;
+
+import games.noriter.api.room.RoomException;
+import games.noriter.api.room.RoomSnapshot;
+import games.noriter.api.room.RoomStatus;
 
 import games.noriter.api.game.GameSpec;
 import java.time.Instant;
@@ -8,7 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-class Room {
+public class Room {
 
     private final String id;
     private final GameSpec spec;
@@ -21,21 +25,21 @@ class Room {
     private Instant startAt;
     private Instant endAt;
 
-    Room(String id, GameSpec spec) {
+    public Room(String id, GameSpec spec) {
         this.id = id;
         this.spec = spec;
         this.maxPlayers = spec.defaultMaxPlayers();
         this.options.putAll(spec.defaultOptions());
     }
 
-    String id() { return id; }
-    GameSpec spec() { return spec; }
-    RoomStatus status() { return status; }
-    Instant startAt() { return startAt; }
-    Instant endAt() { return endAt; }
-    boolean isEmpty() { return players.isEmpty(); }
+    public String id() { return id; }
+    public GameSpec spec() { return spec; }
+    public RoomStatus status() { return status; }
+    public Instant startAt() { return startAt; }
+    public Instant endAt() { return endAt; }
+    public boolean isEmpty() { return players.isEmpty(); }
 
-    synchronized void join(String playerId, String nickname) {
+    public synchronized void join(String playerId, String nickname) {
         if (players.containsKey(playerId)) return;
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         if (players.size() >= maxPlayers) throw new RoomException("room is full");
@@ -43,7 +47,7 @@ class Room {
         if (hostId == null) hostId = playerId;
     }
 
-    synchronized void leave(String playerId) {
+    public synchronized void leave(String playerId) {
         if (players.remove(playerId) == null) return;
         if (playerId.equals(hostId)) {
             hostId = players.isEmpty() ? null : players.keySet().iterator().next();
@@ -51,7 +55,7 @@ class Room {
         if (status == RoomStatus.PLAYING && allFinished()) status = RoomStatus.FINISHED;
     }
 
-    synchronized void setMaxPlayers(String playerId, int value) {
+    public synchronized void setMaxPlayers(String playerId, int value) {
         requireHost(playerId);
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         if (value < spec.minPlayers() || value > spec.maxPlayersLimit()) {
@@ -61,7 +65,7 @@ class Room {
         maxPlayers = value;
     }
 
-    synchronized void setOptions(String playerId, Map<String, Object> changes) {
+    public synchronized void setOptions(String playerId, Map<String, Object> changes) {
         requireHost(playerId);
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         changes.forEach((k, v) -> {
@@ -76,7 +80,7 @@ class Room {
                 .findFirst().orElse(value);
     }
 
-    synchronized void countdown(String playerId, Instant startAt, long seed) {
+    public synchronized void countdown(String playerId, Instant startAt, long seed) {
         requireHost(playerId);
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         if (players.size() < spec.minPlayers()) throw new RoomException("not enough players");
@@ -86,20 +90,20 @@ class Room {
         this.seed = seed;
     }
 
-    synchronized boolean play() {
+    public synchronized boolean play() {
         if (status != RoomStatus.COUNTDOWN) return false;
         status = RoomStatus.PLAYING;
         return true;
     }
 
-    synchronized void score(String playerId, long score) {
+    public synchronized void score(String playerId, long score) {
         if (status != RoomStatus.PLAYING) throw new RoomException("game is not running");
         var p = requirePlayer(playerId);
         if (p.finished) return;
         p.score = spec.higherIsBetter() ? Math.max(p.score, score) : score;
     }
 
-    synchronized void finish(String playerId, long score) {
+    public synchronized void finish(String playerId, long score) {
         if (status != RoomStatus.PLAYING) throw new RoomException("game is not running");
         var p = requirePlayer(playerId);
         p.score = score;
@@ -107,14 +111,14 @@ class Room {
         if (allFinished()) status = RoomStatus.FINISHED;
     }
 
-    synchronized boolean timeUp() {
+    public synchronized boolean timeUp() {
         if (status != RoomStatus.PLAYING) return false;
         players.values().forEach(p -> p.finished = true);
         status = RoomStatus.FINISHED;
         return true;
     }
 
-    synchronized RoomSnapshot snapshot() {
+    public synchronized RoomSnapshot snapshot() {
         var ranked = new ArrayList<>(players.values());
         Comparator<Player> byScore = Comparator.comparingLong(p -> p.score);
         ranked.sort(spec.higherIsBetter() ? byScore.reversed() : byScore);

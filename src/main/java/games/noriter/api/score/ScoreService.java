@@ -1,5 +1,7 @@
 package games.noriter.api.score;
 
+import games.noriter.api.score.domain.GameScore;
+import games.noriter.api.score.infra.GameScoreRepository;
 import games.noriter.api.user.UserService;
 import games.noriter.api.user.UserSummary;
 import java.util.ArrayList;
