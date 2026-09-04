@@ -61,7 +61,7 @@ class RoomWebSocketTests {
     @Test
     void twoPlayersJoinAndHostStartsMatch() throws Exception {
         var rest = RestClient.create("http://localhost:" + port);
-        var created = rest.post().uri("/api/public/rooms").body(Map.of("gameId", "2048")).retrieve().body(JsonNode.class);
+        var created = rest.post().uri("/api/rooms").body(Map.of("gameId", "2048")).retrieve().body(JsonNode.class);
         var roomId = created.get("id").asText();
         assertThat(roomId).hasSize(8);
 
@@ -99,7 +99,7 @@ class RoomWebSocketTests {
         host.send(Map.of("type", "score", "score", 512));
         assertThat(guest.nextRoom().get("players").get(0).get("score").asLong()).isEqualTo(512);
 
-        var rest404 = rest.get().uri("/api/public/rooms/zzzzzzzz").exchange((req, res) -> res.getStatusCode().value());
+        var rest404 = rest.get().uri("/api/rooms/zzzzzzzz").exchange((req, res) -> res.getStatusCode().value());
         assertThat(rest404).isEqualTo(404);
 
         host.session.close();

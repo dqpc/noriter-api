@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/public/leaderboard")
+@RequestMapping("/api/games/{gameId}/leaderboard")
 class LeaderboardController {
 
     private final ScoreService scores;
@@ -17,7 +17,7 @@ class LeaderboardController {
         this.scores = scores;
     }
 
-    @GetMapping("/{gameId}")
+    @GetMapping
     List<LeaderboardEntry> leaderboard(
             @PathVariable String gameId,
             @RequestParam(defaultValue = "20") int limit) {
