@@ -16,6 +16,7 @@ class Room {
     private RoomStatus status = RoomStatus.WAITING;
     private String hostId;
     private int maxPlayers;
+    private final Map<String, Object> options = new LinkedHashMap<>();
     private long seed;
     private Instant startAt;
     private Instant endAt;
@@ -24,6 +25,7 @@ class Room {
         this.id = id;
         this.spec = spec;
         this.maxPlayers = spec.defaultMaxPlayers();
+        this.options.putAll(spec.defaultOptions());
     }
 
     String id() { return id; }
@@ -57,6 +59,21 @@ class Room {
         }
         if (value < players.size()) throw new RoomException("more players than maxPlayers");
         maxPlayers = value;
+    }
+
+    synchronized void setOptions(String playerId, Map<String, Object> changes) {
+        requireHost(playerId);
+        if (status != RoomStatus.WAITING) throw new RoomException("game already started");
+        changes.forEach((k, v) -> {
+            if (!spec.isAllowedOption(k, v)) throw new RoomException("invalid option " + k + "=" + v);
+        });
+        changes.forEach((k, v) -> options.put(k, normalize(k, v)));
+    }
+
+    private Object normalize(String key, Object value) {
+        return spec.optionChoices().get(key).stream()
+                .filter(c -> String.valueOf(c).equals(String.valueOf(value)))
+                .findFirst().orElse(value);
     }
 
     synchronized void countdown(String playerId, Instant startAt, long seed) {
@@ -115,7 +132,7 @@ class Room {
         List<RoomSnapshot.PlayerSnapshot> list = players.values().stream()
                 .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.score, p.finished, ranks.get(p.id)))
                 .toList();
-        return new RoomSnapshot(id, spec.id(), status, hostId, maxPlayers, seed, startAt, endAt, list);
+        return new RoomSnapshot(id, spec.id(), status, hostId, maxPlayers, Map.copyOf(options), seed, startAt, endAt, list);
     }
 
     private boolean allFinished() {

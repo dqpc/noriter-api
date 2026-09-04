@@ -62,6 +62,20 @@ class RoomServiceTests {
     }
 
     @Test
+    void optionsDefaultFromSpecAndHostCanChangeWithinChoices() {
+        var id = service.create("2048").id();
+        assertThat(service.find(id).orElseThrow().options()).containsEntry("target", 2048);
+        service.join(id, "a", "A");
+        service.join(id, "b", "B");
+
+        assertThat(service.setOptions(id, "a", java.util.Map.of("target", 512)).options()).containsEntry("target", 512);
+        assertThat(service.setOptions(id, "a", java.util.Map.of("target", "1024")).options()).containsEntry("target", 1024);
+        assertThatThrownBy(() -> service.setOptions(id, "b", java.util.Map.of("target", 512))).hasMessageContaining("host");
+        assertThatThrownBy(() -> service.setOptions(id, "a", java.util.Map.of("target", 4096))).hasMessageContaining("invalid option");
+        assertThatThrownBy(() -> service.setOptions(id, "a", java.util.Map.of("speed", 1))).hasMessageContaining("invalid option");
+    }
+
+    @Test
     void hostLeavingPromotesNextPlayer() {
         var id = service.create("2048").id();
         service.join(id, "a", "A");

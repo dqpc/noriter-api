@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,12 @@ public class RoomService {
     public RoomSnapshot setMaxPlayers(String roomId, String playerId, int maxPlayers) {
         var room = rooms.require(roomId);
         room.setMaxPlayers(playerId, maxPlayers);
+        return publish(room);
+    }
+
+    public RoomSnapshot setOptions(String roomId, String playerId, Map<String, Object> options) {
+        var room = rooms.require(roomId);
+        room.setOptions(playerId, options);
         return publish(room);
     }
 
