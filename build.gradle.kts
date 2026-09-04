@@ -19,6 +19,11 @@ repositories {
 }
 
 dependencies {
+	implementation(platform("org.springframework.modulith:spring-modulith-bom:2.1.1"))
+	implementation("org.springframework.modulith:spring-modulith-starter-core")
+	implementation("org.springframework.modulith:spring-modulith-starter-jdbc")
+	runtimeOnly("org.springframework.modulith:spring-modulith-actuator")
+	testImplementation("org.springframework.modulith:spring-modulith-starter-test")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")

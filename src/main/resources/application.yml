@@ -29,3 +29,10 @@ management:
     health:
       probes:
         enabled: true
+
+spring.modulith:
+  events:
+    jdbc:
+      schema-initialization:
+        enabled: true   # event_publication 테이블. Flyway 로 옮길 때 false 로.
+    republish-outstanding-events-on-restart: true
