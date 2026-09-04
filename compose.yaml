@@ -1,0 +1,14 @@
+# 로컬 개발용 Postgres. `docker compose up -d` 후 `./gradlew bootRun`.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: noriter
+      POSTGRES_USER: noriter
+      POSTGRES_PASSWORD: noriter
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

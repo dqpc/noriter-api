@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: noriter-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/noriter}
+    username: ${DB_USER:noriter}
+    password: ${DB_PASSWORD:noriter}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate   # 스키마는 Flyway 가 관리한다
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework   # Cloudflare Tunnel / 프록시 뒤에서 동작
+
+noriter:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
