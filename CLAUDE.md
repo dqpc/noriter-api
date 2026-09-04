@@ -53,3 +53,13 @@ src/main/resources/
 1. 소셜 로그인 (Google) → app_user 생성
 2. 리더보드: `POST /api/scores`, `GET /api/public/leaderboard/{gameId}`
 3. 댓글 테이블 + API
+
+## 브랜치 전략 (git flow)
+
+- `main`: 운영 배포 상태. release/hotfix 머지로만 변경.
+- `develop`: 통합 브랜치, 기본 브랜치. feature 는 여기로 PR.
+- `feature/<topic>`: develop 에서 분기 → PR → develop 머지.
+- `release/<version>`: 배포 준비. develop 에서 분기 → main 과 develop 양쪽에 머지, main 에 태그.
+- `hotfix/<topic>`: main 에서 분기 → main 과 develop 양쪽에 머지.
+- main/develop 은 직접 push 금지 (룰셋으로 차단됨). **모든 변경은 PR 로** 기록을 남긴다.
+- 커밋에 `Co-Authored-By` 를 넣지 않는다.
