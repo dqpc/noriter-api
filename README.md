@@ -12,5 +12,3 @@ docker compose up -d
 헬스체크: http://localhost:8080/actuator/health
 
 ## 개발 메모
-
-구조와 규칙은 [CLAUDE.md](./CLAUDE.md) 참고. 프론트엔드는 [noriter-web](https://github.com/dqpc/noriter-web).
