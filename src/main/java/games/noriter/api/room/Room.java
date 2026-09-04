@@ -132,7 +132,9 @@ class Room {
         List<RoomSnapshot.PlayerSnapshot> list = players.values().stream()
                 .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.score, p.finished, ranks.get(p.id)))
                 .toList();
-        return new RoomSnapshot(id, spec.id(), status, hostId, maxPlayers, Map.copyOf(options), seed, startAt, endAt, list);
+        var info = new RoomSnapshot.GameInfo(spec.name(), spec.minPlayers(), spec.maxPlayersLimit(),
+                spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices());
+        return new RoomSnapshot(id, spec.id(), info, status, hostId, maxPlayers, Map.copyOf(options), seed, startAt, endAt, list);
     }
 
     private boolean allFinished() {

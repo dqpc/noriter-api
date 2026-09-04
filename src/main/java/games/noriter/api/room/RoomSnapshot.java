@@ -7,6 +7,7 @@ import java.util.Map;
 public record RoomSnapshot(
         String id,
         String gameId,
+        GameInfo game,
         RoomStatus status,
         String hostId,
         int maxPlayers,
@@ -17,4 +18,11 @@ public record RoomSnapshot(
         List<PlayerSnapshot> players) {
 
     public record PlayerSnapshot(String id, String nickname, long score, boolean finished, Integer rank) {}
+
+    public record GameInfo(
+            String name,
+            int minPlayers,
+            int maxPlayersLimit,
+            Long matchDurationSeconds,
+            Map<String, List<Object>> optionChoices) {}
 }
