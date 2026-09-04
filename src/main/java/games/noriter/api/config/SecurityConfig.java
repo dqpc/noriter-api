@@ -22,7 +22,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // 프론트가 별도 origin 의 SPA. 토큰 기반 인증으로 갈 예정.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/api/public/**", "/ws/**").permitAll()
                         .anyRequest().authenticated())
                 .build();
     }
