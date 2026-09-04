@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional(readOnly = true)
 public class UserService {
 
     private final AppUserRepository users;
@@ -24,10 +23,12 @@ public class UserService {
                 .toSummary();
     }
 
+    @Transactional(readOnly = true)
     public Optional<UserSummary> findById(Long id) {
         return users.findById(id).map(AppUser::toSummary);
     }
 
+    @Transactional(readOnly = true)
     public Map<Long, UserSummary> findSummaries(Collection<Long> ids) {
         if (ids.isEmpty()) return Map.of();
         return users.findAllByIdIn(ids).stream()

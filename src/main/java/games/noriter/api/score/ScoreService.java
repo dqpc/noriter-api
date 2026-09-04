@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional(readOnly = true)
 public class ScoreService {
 
     private final GameScoreRepository scores;
@@ -30,6 +29,7 @@ public class ScoreService {
         events.publishEvent(new ScoreSubmitted(gameId, userId, score));
     }
 
+    @Transactional(readOnly = true)
     public List<LeaderboardEntry> leaderboard(String gameId, int limit) {
         var top = scores.findByGameIdOrderByScoreDescCreatedAtAsc(gameId, PageRequest.of(0, limit));
         Map<Long, UserSummary> names = users.findSummaries(top.stream().map(GameScore::getUserId).toList());
