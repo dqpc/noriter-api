@@ -58,13 +58,13 @@ class RoomServiceTests {
     @Test
     void firstJoinerBecomesHostAndOnlyHostChangesSettings() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A");
-        var room = service.join(id, "b", "B");
+        service.join(id, "a", "A", "rabbit");
+        var room = service.join(id, "b", "B", "rabbit");
         assertThat(room.hostId()).isEqualTo("a");
 
         assertThatThrownBy(() -> service.setMaxPlayers(id, "b", 2)).isInstanceOf(RoomException.class);
         assertThat(service.setMaxPlayers(id, "a", 2).maxPlayers()).isEqualTo(2);
-        assertThatThrownBy(() -> service.join(id, "c", "C")).hasMessageContaining("full");
+        assertThatThrownBy(() -> service.join(id, "c", "C", "rabbit")).hasMessageContaining("full");
         assertThatThrownBy(() -> service.setMaxPlayers(id, "a", 9)).hasMessageContaining("between");
     }
 
@@ -72,8 +72,8 @@ class RoomServiceTests {
     void optionsDefaultFromSpecAndHostCanChangeWithinChoices() {
         var id = service.create("2048").id();
         assertThat(service.find(id).orElseThrow().options()).containsEntry("target", 2048);
-        service.join(id, "a", "A");
-        service.join(id, "b", "B");
+        service.join(id, "a", "A", "rabbit");
+        service.join(id, "b", "B", "rabbit");
 
         assertThat(service.setOptions(id, "a", java.util.Map.of("target", 512)).options()).containsEntry("target", 512);
         assertThat(service.setOptions(id, "a", java.util.Map.of("target", "1024")).options()).containsEntry("target", 1024);
@@ -85,8 +85,8 @@ class RoomServiceTests {
     @Test
     void hostLeavingPromotesNextPlayer() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A");
-        service.join(id, "b", "B");
+        service.join(id, "a", "A", "rabbit");
+        service.join(id, "b", "B", "rabbit");
         service.leave(id, "a");
         assertThat(service.find(id).orElseThrow().hostId()).isEqualTo("b");
         service.leave(id, "b");
@@ -96,9 +96,9 @@ class RoomServiceTests {
     @Test
     void fullMatchLifecycleRanksByScore() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A");
-        service.join(id, "b", "B");
-        service.join(id, "c", "C");
+        service.join(id, "a", "A", "rabbit");
+        service.join(id, "b", "B", "rabbit");
+        service.join(id, "c", "C", "rabbit");
 
         var countdown = service.start(id, "a");
         assertThat(countdown.status()).isEqualTo(RoomStatus.COUNTDOWN);
@@ -132,8 +132,8 @@ class RoomServiceTests {
     @Test
     void tiedScoresShareRank() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A");
-        service.join(id, "b", "B");
+        service.join(id, "a", "A", "rabbit");
+        service.join(id, "b", "B", "rabbit");
         service.start(id, "a");
         scheduled.get(0).run();
         service.finish(id, "a", 100);
@@ -146,12 +146,12 @@ class RoomServiceTests {
     @Test
     void chatIsDeliveredAndKeptInHistoryWithSystemMessages() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A");
+        service.join(id, "a", "A", "rabbit");
         service.chat(id, "a", "  hello  ");
         service.chat(id, "a", "   ");
         assertThatThrownBy(() -> service.chat(id, "zzz", "hi")).hasMessageContaining("not in room");
         assertThatThrownBy(() -> service.chat(id, "a", "x".repeat(201))).hasMessageContaining("too long");
-        service.join(id, "b", "B");
+        service.join(id, "b", "B", "rabbit");
         service.leave(id, "b");
 
         assertThat(chats).extracting(RoomChatMessage::text)
@@ -164,8 +164,8 @@ class RoomServiceTests {
     @Test
     void gameWithoutDurationEndsOnlyWhenAllFinish() {
         var id = service.create("stairs").id();
-        service.join(id, "a", "A");
-        service.join(id, "b", "B");
+        service.join(id, "a", "A", "rabbit");
+        service.join(id, "b", "B", "rabbit");
         var cd = service.start(id, "a");
         assertThat(cd.endAt()).isNull();
         assertThat(scheduled).hasSize(1);

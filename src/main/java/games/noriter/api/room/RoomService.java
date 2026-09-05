@@ -40,9 +40,9 @@ public class RoomService {
         return rooms.find(roomId).map(Room::snapshot);
     }
 
-    public RoomSnapshot join(String roomId, String playerId, String nickname) {
+    public RoomSnapshot join(String roomId, String playerId, String nickname, String character) {
         var room = rooms.require(roomId);
-        room.join(playerId, nickname);
+        room.join(playerId, nickname, character);
         system(room, nickname + " 님이 들어왔습니다");
         return publish(room);
     }
