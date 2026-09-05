@@ -21,9 +21,8 @@ public class YutGame implements TurnGame {
 
     @Override
     public TurnState start(long seed, Map<String, Object> options, List<String> playerIds, Instant now) {
-        boolean backdo = !"false".equals(String.valueOf(options.getOrDefault("backdo", "true")));
         int pieces = Integer.parseInt(String.valueOf(options.getOrDefault("pieces", DEFAULT_PIECES)));
-        var s = new YutState(seed, playerIds, backdo, pieces, TURN_SECONDS, BOT_DELAY_SECONDS);
+        var s = new YutState(seed, playerIds, true, pieces, TURN_SECONDS, BOT_DELAY_SECONDS);
         s.deadline = now.plusSeconds(TURN_SECONDS);
         return s;
     }
