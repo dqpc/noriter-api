@@ -2,12 +2,19 @@
 
 놀이터(noriter)의 백엔드. 방 대전, 채팅, 리더보드를 담당한다. 프론트는 [noriter-web](https://github.com/dqpc/noriter-web).
 
-## 스택
+## 기술 스택
 
-- Java 25, Spring Boot 4.1, Gradle (Kotlin DSL), 버추얼 스레드
-- Spring Web MVC + WebSocket, Spring Security, Spring Data JPA, Spring Modulith
-- PostgreSQL 18, Flyway. 테이블·컬럼은 camelCase
-- 테스트는 H2 (PostgreSQL 모드), 외부 DB 없이 `./gradlew test`
+**Spring Boot 4.1 위의 Java 25 모놀리스다.** Web MVC 가 REST(방 생성·조회, 리더보드)를, Spring WebSocket 이 방 안 실시간 통신(입장·설정·시작·점수·채팅·상태 중계)을 맡는다. WebSocket 메시지는 `type` 필드로 구분하는 JSON 이고, 서버 쪽에서는 sealed interface + record 로 정의해 switch 패턴 매칭으로 처리한다. `spring.threads.virtual.enabled` 로 버추얼 스레드를 켜서, 요청과 WebSocket 처리 스레드가 블로킹되어도 플랫폼 스레드를 점유하지 않는다.
+
+**모듈 경계는 Spring Modulith 가 지킨다.** `games.noriter.api` 아래 패키지 하나가 모듈이고(`game`, `user`, `score`, `room`), 모듈 루트의 서비스·읽기 모델만 다른 모듈이 참조할 수 있다. 하위 패키지(`domain`, `infra`, `web`)는 모듈 내부라서 잘못 참조하면 `ModularityTests` 가 실패한다. 모듈 간 부수효과는 `ApplicationEventPublisher` 이벤트로 넘기고, 이벤트 발행 기록은 Modulith 의 JDBC 레지스트리가 남긴다. 나중에 서버를 쪼갤 일이 생기면 이 경계를 그대로 잘라내는 것이 목표다.
+
+**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 게임 규칙 자체는 서버에 없고, 클라이언트가 보낸 점수와 상태를 중계만 한다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
+
+**저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 camelCase(`PhysicalNamingStrategyStandardImpl`). 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드 조회, WebSocket, 헬스체크)와 인증 필요 경로를 메서드+경로 매처로 나누며, 로그인은 JWT 로 붙일 예정이다.
+
+**의존성 주입은 Lombok `@RequiredArgsConstructor`** 로 하고 설정값은 `@ConfigurationProperties` record(`NoriterProperties`)로 받는다. 빌드는 Gradle(Kotlin DSL), 테스트는 JUnit 5 + AssertJ 이며 WebSocket 은 실제 서버를 띄워 클라이언트 두 개로 검증한다.
+
+**배포는 집 서버컴에서 self-hosted runner 가 한다.** GitHub Actions 가 서버컴에서 테스트·bootJar 후 launchd 서비스를 재시작하고, dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
 
 ## 주소
 
