@@ -14,8 +14,7 @@ public record GameSpec(
         boolean seeded,
         boolean higherIsBetter,
         Map<String, List<Object>> optionChoices,
-        Map<String, Object> defaultOptions,
-        List<GameMode> modes) {
+        Map<String, Object> defaultOptions) {
 
     public GameSpec {
         if (minPlayers < 1 || defaultMaxPlayers < minPlayers || maxPlayersLimit < defaultMaxPlayers) {
@@ -28,12 +27,6 @@ public record GameSpec(
         });
         optionChoices = choices;
         defaultOptions = defaults;
-        modes = List.copyOf(modes);
-        if (!modes.contains(GameMode.VERSUS)) throw new IllegalArgumentException("VERSUS mode is required: " + id);
-    }
-
-    public boolean supports(GameMode mode) {
-        return modes.contains(mode);
     }
 
     public boolean isAllowedOption(String key, Object value) {

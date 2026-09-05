@@ -28,7 +28,7 @@ class RoomController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     RoomResponse create(@RequestBody @Validated CreateRoomRequest req) {
-        return RoomResponse.from(rooms.create(req.gameId(), req.modeOrDefault()));
+        return RoomResponse.from(rooms.create(req.gameId()));
     }
 
     @GetMapping("/{roomId}")

@@ -5,9 +5,7 @@ import games.noriter.api.room.RoomException;
 import games.noriter.api.room.RoomSnapshot;
 import games.noriter.api.room.RoomStatus;
 
-import games.noriter.api.game.GameMode;
 import games.noriter.api.game.GameSpec;
-import games.noriter.api.game.SharedState;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -21,8 +19,6 @@ public class Room {
 
     private final String id;
     private final GameSpec spec;
-    private final GameMode mode;
-    private SharedState shared;
     private final Map<String, Player> players = new LinkedHashMap<>();
     private final Deque<RoomChatMessage> chat = new ArrayDeque<>();
     private static final int CHAT_HISTORY = 50;
@@ -34,25 +30,11 @@ public class Room {
     private Instant startAt;
     private Instant endAt;
 
-    public Room(String id, GameSpec spec, GameMode mode, int maxPlayers) {
+    public Room(String id, GameSpec spec) {
         this.id = id;
         this.spec = spec;
-        this.mode = mode;
-        this.maxPlayers = maxPlayers;
+        this.maxPlayers = spec.defaultMaxPlayers();
         this.options.putAll(spec.defaultOptions());
-    }
-
-    public GameMode mode() { return mode; }
-    public SharedState shared() { return shared; }
-    public synchronized void shared(SharedState state) { this.shared = state; }
-
-    public synchronized List<String> playerIds() {
-        return List.copyOf(players.keySet());
-    }
-
-    public synchronized void finishAll(long score) {
-        players.values().forEach(p -> { p.score = score; p.finished = true; });
-        status = RoomStatus.FINISHED;
     }
 
     public String id() { return id; }
@@ -98,7 +80,6 @@ public class Room {
 
     public synchronized void setMaxPlayers(String playerId, int value) {
         requireHost(playerId);
-        if (mode == GameMode.COOP) throw new RoomException("coop room size is fixed");
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         if (value < spec.minPlayers() || value > spec.maxPlayersLimit()) {
             throw new RoomException("maxPlayers must be between " + spec.minPlayers() + " and " + spec.maxPlayersLimit());
@@ -125,8 +106,7 @@ public class Room {
     public synchronized void countdown(String playerId, Instant startAt, long seed) {
         requireHost(playerId);
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
-        int needed = mode == GameMode.COOP ? maxPlayers : spec.minPlayers();
-        if (players.size() < needed) throw new RoomException("not enough players");
+        if (players.size() < spec.minPlayers()) throw new RoomException("not enough players");
         this.status = RoomStatus.COUNTDOWN;
         this.startAt = startAt;
         this.endAt = spec.matchDuration() == null ? null : startAt.plus(spec.matchDuration());
@@ -180,8 +160,8 @@ public class Room {
                 .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.score, p.finished, ranks.get(p.id)))
                 .toList();
         var info = new RoomSnapshot.GameInfo(spec.name(), spec.minPlayers(), spec.maxPlayersLimit(),
-                spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices(), spec.modes());
-        return new RoomSnapshot(id, spec.id(), info, mode, status, hostId, maxPlayers, Map.copyOf(options), seed, startAt, endAt, list);
+                spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices());
+        return new RoomSnapshot(id, spec.id(), info, status, hostId, maxPlayers, Map.copyOf(options), seed, startAt, endAt, list);
     }
 
     private boolean allFinished() {
