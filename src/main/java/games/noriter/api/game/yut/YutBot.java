@@ -24,8 +24,9 @@ final class YutBot {
             if (m.dest() == Board.BANG) v += 25;
             if (m.via() != null && m.via() == 27) v += 10;
             v += m.stacks() > 0 ? -5 : 0;
+            v += m.blocked() > 0 ? -3 : 0;
         }
-        v += m.result().steps;
+        v += m.steps();
         return v;
     }
 

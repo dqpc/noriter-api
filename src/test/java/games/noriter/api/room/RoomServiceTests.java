@@ -226,6 +226,7 @@ class RoomServiceTests {
         service.join(id, "b", "B", "rat");
         assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("duplicate");
         service.setCharacter(id, "b", "ox");
+        service.setOptions(id, "a", java.util.Map.of("cards", false));
         service.start(id, "a");
         scheduled.get(0).run();
         assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
