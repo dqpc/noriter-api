@@ -62,11 +62,11 @@ public class Room {
         return List.copyOf(chat);
     }
 
-    public synchronized void join(String playerId, String nickname) {
+    public synchronized void join(String playerId, String nickname, String character) {
         if (players.containsKey(playerId)) return;
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         if (players.size() >= maxPlayers) throw new RoomException("room is full");
-        players.put(playerId, new Player(playerId, nickname));
+        players.put(playerId, new Player(playerId, nickname, character));
         if (hostId == null) hostId = playerId;
     }
 
@@ -157,7 +157,7 @@ public class Room {
             }
         }
         List<RoomSnapshot.PlayerSnapshot> list = players.values().stream()
-                .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.score, p.finished, ranks.get(p.id)))
+                .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.character, p.score, p.finished, ranks.get(p.id)))
                 .toList();
         var info = new RoomSnapshot.GameInfo(spec.name(), spec.minPlayers(), spec.maxPlayersLimit(),
                 spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices());
@@ -181,12 +181,14 @@ public class Room {
     private static final class Player {
         final String id;
         final String nickname;
+        final String character;
         long score;
         boolean finished;
 
-        Player(String id, String nickname) {
+        Player(String id, String nickname, String character) {
             this.id = id;
             this.nickname = nickname;
+            this.character = character;
         }
     }
 }

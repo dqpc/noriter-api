@@ -73,9 +73,10 @@ class RoomWebSocketTests {
         var hello = host.next();
         assertThat(hello.get("type").asText()).isEqualTo("hello");
         host.playerId = hello.get("playerId").asText();
-        host.send(Map.of("type", "join", "nickname", "goose"));
+        host.send(Map.of("type", "join", "nickname", "goose", "character", "tiger"));
         var r1 = host.nextRoom();
         assertThat(r1.get("players")).hasSize(1);
+        assertThat(r1.get("players").get(0).get("character").asText()).isEqualTo("tiger");
         assertThat(r1.get("hostId").asText()).isEqualTo(host.playerId);
 
         var guest = new Client(roomId);

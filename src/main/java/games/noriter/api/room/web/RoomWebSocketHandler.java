@@ -43,7 +43,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
                 case ClientMessage.Join m -> {
                     sessions.send(session, new ServerMessage.ChatHistory(
                             rooms.chatHistory(roomId).stream().map(ChatMessage::from).toList()));
-                    rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname());
+                    rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname(), m.character());
                 }
                 case ClientMessage.Chat m -> rooms.chat(roomId, playerId, m.text());
                 case ClientMessage.Settings m -> {
