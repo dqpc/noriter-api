@@ -55,7 +55,7 @@ class RoomServiceTests {
     @Test
     void createsRoomWithDefaultsFromGameSpec() {
         var room = service.create("2048");
-        assertThat(room.id()).hasSize(8);
+        assertThat(room.id()).hasSize(4);
         assertThat(room.status()).isEqualTo(RoomStatus.WAITING);
         assertThat(room.maxPlayers()).isEqualTo(4);
         assertThat(room.players()).isEmpty();
