@@ -25,6 +25,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/games/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/rooms").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/*").permitAll()
+                        .requestMatchers("/api/visits").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated())
                 .build();
