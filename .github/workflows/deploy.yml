@@ -17,18 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: java
-        run: |
-          export JAVA_HOME=$HOME/opt/jdk-25/Contents/Home
-          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
-          "$JAVA_HOME/bin/java" -version
+        run: java -version
       - name: test + bootJar
         run: ./gradlew test bootJar --no-daemon -q
       - name: deploy ($TARGET)
         run: |
           set -e
-          cp build/libs/noriter-api-*.jar "$HOME/opt/noriter-api-$TARGET/app.jar.new"
-          mv "$HOME/opt/noriter-api-$TARGET/app.jar.new" "$HOME/opt/noriter-api-$TARGET/app.jar"
-          launchctl unload "$HOME/Library/LaunchAgents/games.noriter.api-$TARGET.plist"
-          launchctl load -w "$HOME/Library/LaunchAgents/games.noriter.api-$TARGET.plist"
+          cp build/libs/noriter-api-*.jar "/opt/noriter/api-$TARGET/app.jar.new"
+          mv "/opt/noriter/api-$TARGET/app.jar.new" "/opt/noriter/api-$TARGET/app.jar"
+          sudo systemctl restart "noriter-api-$TARGET"
           for i in $(seq 1 90); do curl -sf "http://127.0.0.1:$PORT/actuator/health" >/dev/null && break; sleep 2; done
           curl -sf "http://127.0.0.1:$PORT/actuator/health"

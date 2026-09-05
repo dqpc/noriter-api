@@ -14,7 +14,7 @@
 
 **의존성 주입은 Lombok `@RequiredArgsConstructor`** 로 하고 설정값은 `@ConfigurationProperties` record(`NoriterProperties`)로 받는다. 빌드는 Gradle(Kotlin DSL), 테스트는 JUnit 5 + AssertJ 이며 WebSocket 은 실제 서버를 띄워 클라이언트 두 개로 검증한다.
 
-**배포는 집 서버컴에서 self-hosted runner 가 한다.** GitHub Actions 가 서버컴에서 테스트·bootJar 후 launchd 서비스를 재시작하고, dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
+**배포는 집 서버컴에서 self-hosted runner 가 한다.** GitHub Actions 가 서버컴(Ubuntu Server)에서 테스트·bootJar 후 systemd 서비스를 재시작하고, dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
 
 ## 주소
 
