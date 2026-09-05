@@ -48,6 +48,8 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
                 case ClientMessage.Chat m -> rooms.chat(roomId, playerId, m.text());
                 case ClientMessage.Character m -> rooms.setCharacter(roomId, playerId, m.character());
                 case ClientMessage.Ping m -> sessions.send(session, new ServerMessage.Pong());
+                case ClientMessage.Rematch m -> rooms.rematch(roomId, playerId);
+                case ClientMessage.State m -> rooms.relayState(roomId, playerId, m.state() == null ? java.util.Map.of() : m.state());
                 case ClientMessage.Settings m -> {
                     if (m.maxPlayers() != null) rooms.setMaxPlayers(roomId, playerId, m.maxPlayers());
                     if (m.options() != null) rooms.setOptions(roomId, playerId, m.options());

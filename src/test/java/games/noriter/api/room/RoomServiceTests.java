@@ -22,6 +22,7 @@ class RoomServiceTests {
 
     List<RoomSnapshot> broadcasts;
     List<RoomChatMessage> chats;
+    List<RoomPlayerState> relayed;
     List<Runnable> scheduled;
     RoomService service;
 
@@ -29,6 +30,7 @@ class RoomServiceTests {
     void setUp() {
         broadcasts = new ArrayList<>();
         chats = new ArrayList<>();
+        relayed = new ArrayList<>();
         scheduled = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
@@ -41,6 +43,7 @@ class RoomServiceTests {
         games.noriter.api.room.domain.RoomBroadcaster b = new games.noriter.api.room.domain.RoomBroadcaster() {
             public void broadcast(RoomSnapshot s) { broadcasts.add(s); }
             public void chat(RoomChatMessage m) { chats.add(m); }
+            public void playerState(RoomPlayerState s) { relayed.add(s); }
         };
         service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false))), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
@@ -186,6 +189,29 @@ class RoomServiceTests {
         var snap = service.setCharacter(id, "a", "tiger");
         assertThat(snap.players().get(0).character()).isEqualTo("tiger");
         assertThatThrownBy(() -> service.setCharacter(id, "zzz", "ox")).hasMessageContaining("not in room");
+    }
+
+    @Test
+    void hostCanRematchAfterFinishAndStateIsRelayedOnlyWhilePlaying() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rat");
+        service.join(id, "b", "B", "ox");
+        service.relayState(id, "a", java.util.Map.of("steps", 1));
+        assertThat(relayed).isEmpty();
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.relayState(id, "a", java.util.Map.of("steps", 3));
+        assertThat(relayed).hasSize(1);
+        assertThat(relayed.get(0).state()).containsEntry("steps", 3);
+        service.finish(id, "a", 10);
+        service.finish(id, "b", 20);
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.FINISHED);
+        assertThatThrownBy(() -> service.rematch(id, "b")).hasMessageContaining("host");
+        var again = service.rematch(id, "a");
+        assertThat(again.status()).isEqualTo(RoomStatus.WAITING);
+        assertThat(again.players()).allMatch(p -> p.score() == 0 && !p.finished() && p.rank() == null);
+        assertThat(again.players()).hasSize(2);
+        assertThatThrownBy(() -> service.rematch(id, "a")).hasMessageContaining("not finished");
     }
 
     @Test
