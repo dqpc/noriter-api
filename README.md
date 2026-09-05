@@ -71,9 +71,9 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | → | ping | 30초마다. 프록시 유휴 종료 방지 |
 | → | action | 턴제 게임의 수. 윷놀이: `{type:"throw", result?}`(골라 던지기 카드일 때 result), `{type:"move", pieceId, result, steps?, via?}`, `{type:"card", index}`, `{type:"surrender"}` |
 | ← | hello | `{playerId}` join 직후. 토큰을 보냈으면 그 값 |
-| ← | room | 방 스냅샷 (상태·참가자(`connected` 포함)·설정·seed·시각). 변경마다 전원 |
+| ← | room | 방 스냅샷 (상태·참가자(`connected` 포함)·설정·seed·시각) + `serverTime`. 변경마다 전원. 클라이언트는 serverTime 으로 시계 차이를 보정 |
 | ← | playerState | `{playerId, state}` 다른 참가자의 게임 상태 |
-| ← | gameState | 턴제 게임의 판 전체(차례·단계·결과 큐·말 위치·가능한 수·순위). 서버 판정 결과 |
+| ← | gameState | 턴제 게임의 판 전체(차례·단계·결과 큐·말 위치·가능한 수·순위) + `serverTime`. 서버 판정 결과 |
 | ← | chat / chatHistory | 채팅, 입장 시 최근 50개 |
 | ← | error / pong | |
 
