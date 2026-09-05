@@ -52,9 +52,13 @@ class RoomWebSocketTests {
         }
 
         JsonNode nextRoom() throws Exception {
+            return nextOf("room").get("room");
+        }
+
+        JsonNode nextOf(String type) throws Exception {
             JsonNode m;
-            do { m = next(); } while (!"room".equals(m.path("type").asText()));
-            return m.get("room");
+            do { m = next(); } while (!type.equals(m.path("type").asText()));
+            return m;
         }
     }
 
@@ -82,6 +86,12 @@ class RoomWebSocketTests {
 
         guest.send(Map.of("type", "settings", "maxPlayers", 2));
         assertThat(guest.next().get("type").asText()).isEqualTo("error");
+
+        host.send(Map.of("type", "chat", "text", "ready?"));
+        var chat = guest.nextOf("chat").get("message");
+        assertThat(chat.get("nickname").asText()).isEqualTo("goose");
+        assertThat(chat.get("text").asText()).isEqualTo("ready?");
+        assertThat(chat.get("system").asBoolean()).isFalse();
 
         host.send(Map.of("type", "settings", "options", Map.of("target", 512)));
         assertThat(guest.nextRoom().get("options").get("target").asInt()).isEqualTo(512);

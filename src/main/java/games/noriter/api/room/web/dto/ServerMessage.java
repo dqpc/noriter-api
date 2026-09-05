@@ -15,4 +15,12 @@ public sealed interface ServerMessage {
     record Error(String type, String message) implements ServerMessage {
         public Error(String message) { this("error", message); }
     }
+
+    record Chat(String type, ChatMessage message) implements ServerMessage {
+        public Chat(ChatMessage message) { this("chat", message); }
+    }
+
+    record ChatHistory(String type, java.util.List<ChatMessage> messages) implements ServerMessage {
+        public ChatHistory(java.util.List<ChatMessage> messages) { this("chatHistory", messages); }
+    }
 }

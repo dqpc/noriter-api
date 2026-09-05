@@ -3,6 +3,7 @@ package games.noriter.api.room.web;
 import games.noriter.api.room.RoomException;
 import games.noriter.api.room.RoomService;
 import games.noriter.api.room.infra.RoomSessions;
+import games.noriter.api.room.web.dto.ChatMessage;
 import games.noriter.api.room.web.dto.ClientMessage;
 import games.noriter.api.room.web.dto.ServerMessage;
 import java.io.IOException;
@@ -43,7 +44,12 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
         var playerId = session.getId();
         try {
             switch (json.readValue(message.getPayload(), ClientMessage.class)) {
-                case ClientMessage.Join m -> rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname());
+                case ClientMessage.Join m -> {
+                    sessions.send(session, new ServerMessage.ChatHistory(
+                            rooms.chatHistory(roomId).stream().map(ChatMessage::from).toList()));
+                    rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname());
+                }
+                case ClientMessage.Chat m -> rooms.chat(roomId, playerId, m.text());
                 case ClientMessage.Settings m -> {
                     if (m.maxPlayers() != null) rooms.setMaxPlayers(roomId, playerId, m.maxPlayers());
                     if (m.options() != null) rooms.setOptions(roomId, playerId, m.options());

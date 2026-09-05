@@ -50,18 +50,44 @@ public class RoomService {
     public RoomSnapshot join(String roomId, String playerId, String nickname) {
         var room = rooms.require(roomId);
         room.join(playerId, nickname);
+        system(room, nickname + " 님이 들어왔습니다");
         return publish(room);
     }
 
     public void leave(String roomId, String playerId) {
         rooms.find(roomId).ifPresent(room -> {
+            var nickname = room.nicknameOf(playerId);
             room.leave(playerId);
             if (room.isEmpty()) {
                 rooms.remove(roomId);
             } else {
+                if (nickname != null) system(room, nickname + " 님이 나갔습니다");
                 publish(room);
             }
         });
+    }
+
+    public List<RoomChatMessage> chatHistory(String roomId) {
+        return rooms.require(roomId).chatHistory();
+    }
+
+    public void chat(String roomId, String playerId, String text) {
+        var room = rooms.require(roomId);
+        var nickname = room.nicknameOf(playerId);
+        if (nickname == null) throw new RoomException("not in room");
+        var trimmed = text == null ? "" : text.strip();
+        if (trimmed.isEmpty()) return;
+        if (trimmed.length() > RoomChatMessage.MAX_LENGTH) throw new RoomException("message too long");
+        deliver(room, new RoomChatMessage(room.id(), playerId, nickname, trimmed, false, Instant.now(clock)));
+    }
+
+    private void system(Room room, String text) {
+        deliver(room, new RoomChatMessage(room.id(), null, null, text, true, Instant.now(clock)));
+    }
+
+    private void deliver(Room room, RoomChatMessage message) {
+        room.addChat(message);
+        broadcasters.forEach(b -> b.chat(message));
     }
 
     public RoomSnapshot setMaxPlayers(String roomId, String playerId, int maxPlayers) {
