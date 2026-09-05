@@ -3,6 +3,7 @@ package games.noriter.api.game;
 import games.noriter.api.config.NoriterProperties;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
