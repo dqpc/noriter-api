@@ -1,0 +1,14 @@
+{
+  "name": "noriter-api-dev",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "kv_namespaces": [{ "binding": "ORIGINS", "id": "d20f5dd20bea461a80c5b87be49f7057" }],
+  "vars": { "ORIGIN_KEY": "dev" },
+  "env": {
+    "prod": {
+      "name": "noriter-api",
+      "kv_namespaces": [{ "binding": "ORIGINS", "id": "d20f5dd20bea461a80c5b87be49f7057" }],
+      "vars": { "ORIGIN_KEY": "prod" }
+    }
+  }
+}

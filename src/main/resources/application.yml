@@ -1,6 +1,9 @@
 spring:
   application:
     name: noriter-api
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/noriter}
     username: ${DB_USER:noriter}
@@ -8,7 +11,9 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate   # 스키마는 Flyway 가 관리한다
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
   flyway:
     locations: classpath:db/migration
 
@@ -19,6 +24,8 @@ server:
 noriter:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  game:
+    dev-options: ${NORITER_DEV_OPTIONS:false}
 
 management:
   endpoints:
@@ -29,3 +36,10 @@ management:
     health:
       probes:
         enabled: true
+
+spring.modulith:
+  events:
+    jdbc:
+      schema-initialization:
+        enabled: true   # event_publication 테이블. Flyway 로 옮길 때 false 로.
+    republish-outstanding-events-on-restart: true

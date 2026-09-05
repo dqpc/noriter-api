@@ -1,0 +1,34 @@
+package games.noriter.api.room.web.dto;
+
+public sealed interface ServerMessage {
+
+    String type();
+
+    record Hello(String type, String playerId) implements ServerMessage {
+        public Hello(String playerId) { this("hello", playerId); }
+    }
+
+    record RoomUpdate(String type, RoomResponse room) implements ServerMessage {
+        public RoomUpdate(RoomResponse room) { this("room", room); }
+    }
+
+    record Error(String type, String message) implements ServerMessage {
+        public Error(String message) { this("error", message); }
+    }
+
+    record PlayerState(String type, String playerId, java.util.Map<String, Object> state) implements ServerMessage {
+        public PlayerState(String playerId, java.util.Map<String, Object> state) { this("playerState", playerId, state); }
+    }
+
+    record Pong(String type) implements ServerMessage {
+        public Pong() { this("pong"); }
+    }
+
+    record Chat(String type, ChatMessage message) implements ServerMessage {
+        public Chat(ChatMessage message) { this("chat", message); }
+    }
+
+    record ChatHistory(String type, java.util.List<ChatMessage> messages) implements ServerMessage {
+        public ChatHistory(java.util.List<ChatMessage> messages) { this("chatHistory", messages); }
+    }
+}
