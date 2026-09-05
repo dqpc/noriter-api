@@ -49,6 +49,8 @@ REST
 | POST | /api/rooms | 방 생성 `{gameId}` → 방 스냅샷 (id 가 초대 코드) |
 | GET | /api/rooms/{id} | 방 조회 |
 | GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 (점수 제출 API 는 로그인 후) |
+| POST | /api/visits | 방문 1건 기록 → `{today, total}` (프론트가 브라우저·일 단위로 한 번) |
+| GET | /api/visits | 방문 통계 |
 | GET | /actuator/health | 헬스체크 |
 
 WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
@@ -85,6 +87,7 @@ game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·t
 user/     계정 (로그인 예정)
 score/    점수·리더보드
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
+visit/    방문자 수 (siteVisit 일별 카운트, Asia/Seoul)
 ```
 
 모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 서버에 없고 점수와 상태를 중계만 한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
