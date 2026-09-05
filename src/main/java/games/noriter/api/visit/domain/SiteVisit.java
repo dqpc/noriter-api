@@ -11,7 +11,7 @@ public class SiteVisit {
     @Id
     private LocalDate visitDay;
 
-    @Column(nullable = false)
+    @Column(name = "visit_count", nullable = false)
     private long count;
 
     protected SiteVisit() {}

@@ -10,7 +10,7 @@
 
 **게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 실시간 경쟁 게임(2048·계단)은 규칙이 클라이언트에 있고 서버는 점수와 상태를 중계만 한다. 턴제 게임(윷놀이)은 `TurnGame` 구현체가 서버에서 난수·판정·봇을 맡고 클라이언트는 의도(`action`)만 보내므로 콘솔 조작으로 수를 만들 수 없다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
 
-**저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 camelCase(`PhysicalNamingStrategyStandardImpl`). 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드 조회, WebSocket, 헬스체크)와 인증 필요 경로를 메서드+경로 매처로 나누며, 로그인은 JWT 로 붙일 예정이다.
+**저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 PostgreSQL 관례대로 snake_case 소문자·단수형(`app_user.provider_id`)이고 Java 필드는 camelCase 그대로 Spring 기본 네이밍 전략이 변환한다. 제약·인덱스는 `pk_`/`uk_`/`fk_`/`ix_` 접두사. 삭제는 물리 삭제 대신 `deleted_at` 을 채우는 소프트 삭제(Hibernate `@SoftDelete`)다. 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드 조회, WebSocket, 헬스체크)와 인증 필요 경로를 메서드+경로 매처로 나누며, 로그인은 JWT 로 붙일 예정이다.
 
 **의존성 주입은 Lombok `@RequiredArgsConstructor`** 로 하고 설정값은 `@ConfigurationProperties` record(`NoriterProperties`)로 받는다. 빌드는 Gradle(Kotlin DSL), 테스트는 JUnit 5 + AssertJ 이며 WebSocket 은 실제 서버를 띄워 클라이언트 두 개로 검증한다.
 
@@ -90,7 +90,7 @@ game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·t
 user/     계정 (로그인 예정)
 score/    점수·리더보드
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
-visit/    방문자 수 (siteVisit 일별 카운트, Asia/Seoul)
+visit/    방문자 수 (site_visit 일별 카운트, Asia/Seoul)
 ```
 
 모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 서버에 없고 점수와 상태를 중계만 한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.

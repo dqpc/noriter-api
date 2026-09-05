@@ -23,8 +23,8 @@ class ScoreModuleTests {
 
     @Test
     void submitPublishesEventAndAppearsOnLeaderboard(Scenario scenario) {
-        // gameScore.userId 는 DB 레벨 FK 라 유저 행이 있어야 한다 (user 모듈은 목).
-        jdbc.update("insert into appUser (id, provider, providerId, nickname, createdAt) values (1, 'test', 't-1', 'goose', now())");
+        // game_score.user_id 는 DB 레벨 FK 라 유저 행이 있어야 한다 (user 모듈은 목).
+        jdbc.update("insert into app_user (id, provider, provider_id, nickname, created_at) values (1, 'test', 't-1', 'goose', now())");
         Mockito.when(users.findSummaries(Mockito.anyCollection()))
                 .thenReturn(Map.of(1L, new games.noriter.api.user.UserSummary(1L, "goose")));
 
