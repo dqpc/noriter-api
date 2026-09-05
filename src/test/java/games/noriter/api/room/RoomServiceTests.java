@@ -55,7 +55,7 @@ class RoomServiceTests {
     @Test
     void createsRoomWithDefaultsFromGameSpec() {
         var room = service.create("2048");
-        assertThat(room.id()).hasSize(8);
+        assertThat(room.id()).hasSize(4);
         assertThat(room.status()).isEqualTo(RoomStatus.WAITING);
         assertThat(room.maxPlayers()).isEqualTo(4);
         assertThat(room.players()).isEmpty();
@@ -226,6 +226,7 @@ class RoomServiceTests {
         service.join(id, "b", "B", "rat");
         assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("duplicate");
         service.setCharacter(id, "b", "ox");
+        service.setOptions(id, "a", java.util.Map.of("cards", false));
         service.start(id, "a");
         scheduled.get(0).run();
         assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);

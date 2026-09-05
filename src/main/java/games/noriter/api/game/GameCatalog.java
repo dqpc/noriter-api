@@ -41,7 +41,7 @@ public class GameCatalog {
 
     private static GameSpec yut() {
         return new GameSpec("yut", "윷놀이", 2, 4, 4, null, true, true,
-                Map.of("pieces", List.of(2, 3, 4)), Map.of("pieces", 3), true, true);
+                Map.of("pieces", List.of(2, 3, 4), "cards", List.of(true, false)), Map.of("pieces", 3, "cards", true), true, true);
     }
 
     public Optional<GameSpec> find(String id) {

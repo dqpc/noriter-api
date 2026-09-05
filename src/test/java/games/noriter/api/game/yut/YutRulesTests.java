@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class YutRulesTests {
 
     YutState state(String... players) {
-        return new YutState(1, List.of(players), true, 3, 30, 1);
+        return new YutState(1, List.of(players), true, false, 3, 30, 15, 1);
     }
 
     YutState.Piece piece(YutState s, String player, int id) {
@@ -41,11 +41,11 @@ class YutRulesTests {
     void newPieceEntersRingAndOnlyOneNewPieceOptionPerResult() {
         var s = state("a", "b");
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.GAE);
+        s.queue.add(YutState.Rolled.of(Throw.GAE));
         var moves = YutRules.legalMoves(s);
         assertThat(moves).hasSize(1);
         assertThat(moves.get(0).dest()).isEqualTo(2);
-        YutRules.applyMove(s, moves.get(0));
+        YutRules.applyMove(s, s.currentPlayer(), moves.get(0));
         assertThat(piece(s, "a", 0).node()).isEqualTo(2);
         assertThat(piece(s, "a", 0).path).isEqualTo(Path.RING);
     }
@@ -55,14 +55,14 @@ class YutRulesTests {
         var s = state("a", "b");
         place(piece(s, "a", 0), Path.RING, 2);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.GEOL);
-        YutRules.applyMove(s, find(YutRules.legalMoves(s), 0, Throw.GEOL, null));
+        s.queue.add(YutState.Rolled.of(Throw.GEOL));
+        YutRules.applyMove(s, s.currentPlayer(), find(YutRules.legalMoves(s), 0, Throw.GEOL, null));
         var p = piece(s, "a", 0);
         assertThat(p.node()).isEqualTo(Board.MO);
         assertThat(p.path).isEqualTo(Path.A);
         assertThat(p.index).isEqualTo(0);
         s.queue.clear();
-        s.queue.add(Throw.DO);
+        s.queue.add(YutState.Rolled.of(Throw.DO));
         assertThat(find(YutRules.legalMoves(s), 0, Throw.DO, null).dest()).isEqualTo(20);
     }
 
@@ -71,8 +71,8 @@ class YutRulesTests {
         var s = state("a", "b");
         place(piece(s, "a", 0), Path.RING, 3);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.GEOL);
-        YutRules.applyMove(s, find(YutRules.legalMoves(s), 0, Throw.GEOL, null));
+        s.queue.add(YutState.Rolled.of(Throw.GEOL));
+        YutRules.applyMove(s, s.currentPlayer(), find(YutRules.legalMoves(s), 0, Throw.GEOL, null));
         assertThat(piece(s, "a", 0).node()).isEqualTo(6);
         assertThat(piece(s, "a", 0).path).isEqualTo(Path.RING);
     }
@@ -82,7 +82,7 @@ class YutRulesTests {
         var s = state("a", "b");
         place(piece(s, "a", 0), Path.A, 3);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.GAE);
+        s.queue.add(YutState.Rolled.of(Throw.GAE));
         var moves = YutRules.legalMoves(s).stream().filter(m -> m.pieceId() == 0).toList();
         assertThat(moves).extracting(Move::via).containsExactlyInAnyOrder(23, 27);
         assertThat(find(moves, 0, Throw.GAE, 27).dest()).isEqualTo(28);
@@ -91,7 +91,7 @@ class YutRulesTests {
         var t = state("a", "b");
         place(piece(t, "a", 0), Path.A, 2);
         t.phase = YutState.Phase.MOVE;
-        t.queue.add(Throw.GAE);
+        t.queue.add(YutState.Rolled.of(Throw.GAE));
         var m = YutRules.legalMoves(t).stream().filter(x -> x.pieceId() == 0).toList();
         assertThat(m).hasSize(1);
         assertThat(m.get(0).dest()).isEqualTo(23);
@@ -102,24 +102,24 @@ class YutRulesTests {
         var s = state("a", "b");
         place(piece(s, "a", 0), Path.RING, 1);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.BACKDO);
+        s.queue.add(YutState.Rolled.of(Throw.BACKDO));
         var mv = find(YutRules.legalMoves(s), 0, Throw.BACKDO, null);
         assertThat(mv.dest()).isEqualTo(0);
-        YutRules.applyMove(s, mv);
+        YutRules.applyMove(s, s.currentPlayer(), mv);
         assertThat(piece(s, "a", 0).index).isEqualTo(Board.lastIndex(Path.RING));
         s.queue.clear();
-        s.queue.add(Throw.DO);
+        s.queue.add(YutState.Rolled.of(Throw.DO));
         assertThat(find(YutRules.legalMoves(s), 0, Throw.DO, null).dest()).isEqualTo(YutRules.FINISH);
 
         var t = state("a", "b");
         place(piece(t, "a", 0), Path.A, 0);
         t.phase = YutState.Phase.MOVE;
-        t.queue.add(Throw.BACKDO);
+        t.queue.add(YutState.Rolled.of(Throw.BACKDO));
         assertThat(find(YutRules.legalMoves(t), 0, Throw.BACKDO, null).dest()).isEqualTo(4);
 
         var u = state("a", "b");
         u.phase = YutState.Phase.MOVE;
-        u.queue.add(Throw.BACKDO);
+        u.queue.add(YutState.Rolled.of(Throw.BACKDO));
         assertThat(YutRules.legalMoves(u)).isEmpty();
     }
 
@@ -129,24 +129,24 @@ class YutRulesTests {
         place(piece(s, "b", 0), Path.RING, 3);
         place(piece(s, "a", 0), Path.RING, 1);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.GAE);
+        s.queue.add(YutState.Rolled.of(Throw.GAE));
         var mv = find(YutRules.legalMoves(s), 0, Throw.GAE, null);
         assertThat(mv.captures()).isEqualTo(1);
-        assertThat(YutRules.applyMove(s, mv)).isTrue();
+        assertThat(YutRules.applyMove(s, s.currentPlayer(), mv).capturedAny()).isTrue();
         assertThat(piece(s, "b", 0).waiting()).isTrue();
 
         place(piece(s, "a", 1), Path.RING, 1);
         s.queue.clear();
-        s.queue.add(Throw.GAE);
+        s.queue.add(YutState.Rolled.of(Throw.GAE));
         var stack = find(YutRules.legalMoves(s), 1, Throw.GAE, null);
         assertThat(stack.stacks()).isEqualTo(1);
-        YutRules.applyMove(s, stack);
+        YutRules.applyMove(s, s.currentPlayer(), stack);
         assertThat(piece(s, "a", 1).node()).isEqualTo(3);
         s.queue.clear();
-        s.queue.add(Throw.GAE);
+        s.queue.add(YutState.Rolled.of(Throw.GAE));
         var group = YutRules.legalMoves(s).stream().filter(m -> m.result() == Throw.GAE && m.dest() == 5).toList();
         assertThat(group).hasSize(1);
-        YutRules.applyMove(s, group.get(0));
+        YutRules.applyMove(s, s.currentPlayer(), group.get(0));
         assertThat(piece(s, "a", 0).node()).isEqualTo(5);
         assertThat(piece(s, "a", 1).node()).isEqualTo(5);
     }
@@ -156,10 +156,10 @@ class YutRulesTests {
         var s = state("a", "b");
         place(piece(s, "a", 0), Path.D, 2);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.MO);
+        s.queue.add(YutState.Rolled.of(Throw.MO));
         var mv = find(YutRules.legalMoves(s), 0, Throw.MO, null);
         assertThat(mv.dest()).isEqualTo(YutRules.FINISH);
-        YutRules.applyMove(s, mv);
+        YutRules.applyMove(s, s.currentPlayer(), mv);
         assertThat(piece(s, "a", 0).finished).isTrue();
         assertThat(s.finishedCount("a")).isEqualTo(1);
     }
