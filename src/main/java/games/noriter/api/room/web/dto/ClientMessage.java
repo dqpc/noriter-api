@@ -12,7 +12,8 @@ import java.util.Map;
         @JsonSubTypes.Type(value = ClientMessage.Score.class, name = "score"),
         @JsonSubTypes.Type(value = ClientMessage.Finish.class, name = "finish"),
         @JsonSubTypes.Type(value = ClientMessage.Chat.class, name = "chat"),
-        @JsonSubTypes.Type(value = ClientMessage.Character.class, name = "character")
+        @JsonSubTypes.Type(value = ClientMessage.Character.class, name = "character"),
+        @JsonSubTypes.Type(value = ClientMessage.Ping.class, name = "ping")
 })
 public sealed interface ClientMessage {
 
@@ -29,4 +30,6 @@ public sealed interface ClientMessage {
     record Chat(String text) implements ClientMessage {}
 
     record Character(String character) implements ClientMessage {}
+
+    record Ping() implements ClientMessage {}
 }
