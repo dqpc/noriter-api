@@ -1,12 +1,15 @@
 package games.noriter.api.room.domain;
 
+import games.noriter.api.room.RoomChatMessage;
 import games.noriter.api.room.RoomException;
 import games.noriter.api.room.RoomSnapshot;
 import games.noriter.api.room.RoomStatus;
 
 import games.noriter.api.game.GameSpec;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +20,8 @@ public class Room {
     private final String id;
     private final GameSpec spec;
     private final Map<String, Player> players = new LinkedHashMap<>();
+    private final Deque<RoomChatMessage> chat = new ArrayDeque<>();
+    private static final int CHAT_HISTORY = 50;
     private RoomStatus status = RoomStatus.WAITING;
     private String hostId;
     private int maxPlayers;
@@ -38,6 +43,24 @@ public class Room {
     public Instant startAt() { return startAt; }
     public Instant endAt() { return endAt; }
     public boolean isEmpty() { return players.isEmpty(); }
+
+    public synchronized String nicknameOf(String playerId) {
+        var p = players.get(playerId);
+        return p == null ? null : p.nickname;
+    }
+
+    public synchronized boolean hasPlayer(String playerId) {
+        return players.containsKey(playerId);
+    }
+
+    public synchronized void addChat(RoomChatMessage message) {
+        chat.addLast(message);
+        while (chat.size() > CHAT_HISTORY) chat.removeFirst();
+    }
+
+    public synchronized List<RoomChatMessage> chatHistory() {
+        return List.copyOf(chat);
+    }
 
     public synchronized void join(String playerId, String nickname) {
         if (players.containsKey(playerId)) return;

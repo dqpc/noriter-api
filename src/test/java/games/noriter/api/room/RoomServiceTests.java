@@ -21,12 +21,14 @@ class RoomServiceTests {
     static final Instant NOW = Instant.parse("2026-09-05T00:00:00Z");
 
     List<RoomSnapshot> broadcasts;
+    List<RoomChatMessage> chats;
     List<Runnable> scheduled;
     RoomService service;
 
     @BeforeEach
     void setUp() {
         broadcasts = new ArrayList<>();
+        chats = new ArrayList<>();
         scheduled = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
@@ -36,7 +38,11 @@ class RoomServiceTests {
             @Override public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, Instant startTime, java.time.Duration delay) { throw new UnsupportedOperationException(); }
             @Override public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, java.time.Duration delay) { throw new UnsupportedOperationException(); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(), List.of(broadcasts::add),
+        games.noriter.api.room.domain.RoomBroadcaster b = new games.noriter.api.room.domain.RoomBroadcaster() {
+            public void broadcast(RoomSnapshot s) { broadcasts.add(s); }
+            public void chat(RoomChatMessage m) { chats.add(m); }
+        };
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -135,6 +141,24 @@ class RoomServiceTests {
         var done = service.find(id).orElseThrow();
         assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
         assertThat(done.players()).allMatch(p -> p.rank() == 1);
+    }
+
+    @Test
+    void chatIsDeliveredAndKeptInHistoryWithSystemMessages() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A");
+        service.chat(id, "a", "  hello  ");
+        service.chat(id, "a", "   ");
+        assertThatThrownBy(() -> service.chat(id, "zzz", "hi")).hasMessageContaining("not in room");
+        assertThatThrownBy(() -> service.chat(id, "a", "x".repeat(201))).hasMessageContaining("too long");
+        service.join(id, "b", "B");
+        service.leave(id, "b");
+
+        assertThat(chats).extracting(RoomChatMessage::text)
+                .containsExactly("A 님이 들어왔습니다", "hello", "B 님이 들어왔습니다", "B 님이 나갔습니다");
+        assertThat(chats.get(1).system()).isFalse();
+        assertThat(chats.get(1).nickname()).isEqualTo("A");
+        assertThat(service.chatHistory(id)).hasSize(4);
     }
 
     @Test
