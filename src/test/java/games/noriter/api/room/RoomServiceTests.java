@@ -162,6 +162,24 @@ class RoomServiceTests {
     }
 
     @Test
+    void gameWithoutDurationEndsOnlyWhenAllFinish() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A");
+        service.join(id, "b", "B");
+        var cd = service.start(id, "a");
+        assertThat(cd.endAt()).isNull();
+        assertThat(scheduled).hasSize(1);
+        scheduled.get(0).run();
+        service.finish(id, "a", 30);
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
+        service.finish(id, "b", 45);
+        var done = service.find(id).orElseThrow();
+        assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
+        assertThat(done.players()).extracting(RoomSnapshot.PlayerSnapshot::id, RoomSnapshot.PlayerSnapshot::rank)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("a", 2), org.assertj.core.groups.Tuple.tuple("b", 1));
+    }
+
+    @Test
     void rejectsUnknownGame() {
         assertThatThrownBy(() -> service.create("nope")).hasMessageContaining("unknown game");
     }
