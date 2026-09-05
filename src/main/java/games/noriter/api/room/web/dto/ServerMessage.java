@@ -16,6 +16,10 @@ public sealed interface ServerMessage {
         public Error(String message) { this("error", message); }
     }
 
+    record Pong(String type) implements ServerMessage {
+        public Pong() { this("pong"); }
+    }
+
     record Chat(String type, ChatMessage message) implements ServerMessage {
         public Chat(ChatMessage message) { this("chat", message); }
     }

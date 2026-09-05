@@ -88,6 +88,9 @@ class RoomWebSocketTests {
         guest.send(Map.of("type", "settings", "maxPlayers", 2));
         assertThat(guest.next().get("type").asText()).isEqualTo("error");
 
+        host.send(Map.of("type", "ping"));
+        assertThat(host.nextOf("pong").get("type").asText()).isEqualTo("pong");
+
         host.send(Map.of("type", "chat", "text", "ready?"));
         var chat = guest.nextOf("chat").get("message");
         assertThat(chat.get("nickname").asText()).isEqualTo("goose");
