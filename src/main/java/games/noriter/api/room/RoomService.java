@@ -83,6 +83,19 @@ public class RoomService {
         broadcasters.forEach(b -> b.chat(message));
     }
 
+    public RoomSnapshot rematch(String roomId, String playerId) {
+        var room = rooms.require(roomId);
+        room.rematch(playerId);
+        return publish(room);
+    }
+
+    public void relayState(String roomId, String playerId, Map<String, Object> state) {
+        var room = rooms.require(roomId);
+        if (room.status() != RoomStatus.PLAYING || !room.hasPlayer(playerId)) return;
+        var msg = new RoomPlayerState(roomId, playerId, state);
+        broadcasters.forEach(b -> b.playerState(msg));
+    }
+
     public RoomSnapshot setCharacter(String roomId, String playerId, String character) {
         var room = rooms.require(roomId);
         room.setCharacter(playerId, character);

@@ -1,6 +1,7 @@
 package games.noriter.api.room.infra;
 
 import games.noriter.api.room.RoomChatMessage;
+import games.noriter.api.room.RoomPlayerState;
 import games.noriter.api.room.RoomSnapshot;
 import games.noriter.api.room.domain.RoomBroadcaster;
 import games.noriter.api.room.web.dto.ChatMessage;
@@ -53,6 +54,16 @@ public class RoomSessions implements RoomBroadcaster {
         if (set == null) return;
         var payload = new ServerMessage.Chat(ChatMessage.from(message));
         set.forEach(s -> send(s, payload));
+    }
+
+    @Override
+    public void playerState(RoomPlayerState state) {
+        var set = byRoom.get(state.roomId());
+        if (set == null) return;
+        var payload = new ServerMessage.PlayerState(state.playerId(), state.state());
+        set.forEach(s -> {
+            if (!s.getId().equals(state.playerId())) send(s, payload);
+        });
     }
 
     public void send(WebSocketSession session, ServerMessage payload) {

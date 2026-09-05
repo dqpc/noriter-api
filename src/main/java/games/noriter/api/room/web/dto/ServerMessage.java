@@ -16,6 +16,10 @@ public sealed interface ServerMessage {
         public Error(String message) { this("error", message); }
     }
 
+    record PlayerState(String type, String playerId, java.util.Map<String, Object> state) implements ServerMessage {
+        public PlayerState(String playerId, java.util.Map<String, Object> state) { this("playerState", playerId, state); }
+    }
+
     record Pong(String type) implements ServerMessage {
         public Pong() { this("pong"); }
     }

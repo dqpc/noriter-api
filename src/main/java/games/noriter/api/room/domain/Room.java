@@ -117,6 +117,16 @@ public class Room {
         this.seed = seed;
     }
 
+    public synchronized void rematch(String playerId) {
+        requireHost(playerId);
+        if (status != RoomStatus.FINISHED) throw new RoomException("game is not finished");
+        players.values().forEach(p -> { p.score = 0; p.finished = false; });
+        status = RoomStatus.WAITING;
+        startAt = null;
+        endAt = null;
+        seed = 0;
+    }
+
     public synchronized boolean play() {
         if (status != RoomStatus.COUNTDOWN) return false;
         status = RoomStatus.PLAYING;
