@@ -50,6 +50,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
                     rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname());
                 }
                 case ClientMessage.Chat m -> rooms.chat(roomId, playerId, m.text());
+                case ClientMessage.Input m -> rooms.input(roomId, playerId, m.input() == null ? java.util.Map.of() : m.input());
                 case ClientMessage.Settings m -> {
                     if (m.maxPlayers() != null) rooms.setMaxPlayers(roomId, playerId, m.maxPlayers());
                     if (m.options() != null) rooms.setOptions(roomId, playerId, m.options());

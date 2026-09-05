@@ -1,5 +1,6 @@
 package games.noriter.api.room;
 
+import games.noriter.api.game.GameMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -8,6 +9,7 @@ public record RoomSnapshot(
         String id,
         String gameId,
         GameInfo game,
+        GameMode mode,
         RoomStatus status,
         String hostId,
         int maxPlayers,
@@ -24,5 +26,6 @@ public record RoomSnapshot(
             int minPlayers,
             int maxPlayersLimit,
             Long matchDurationSeconds,
-            Map<String, List<Object>> optionChoices) {}
+            Map<String, List<Object>> optionChoices,
+            List<GameMode> modes) {}
 }

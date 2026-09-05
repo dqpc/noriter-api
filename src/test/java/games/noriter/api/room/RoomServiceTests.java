@@ -22,6 +22,7 @@ class RoomServiceTests {
 
     List<RoomSnapshot> broadcasts;
     List<RoomChatMessage> chats;
+    List<RoomGameState> states;
     List<Runnable> scheduled;
     RoomService service;
 
@@ -29,6 +30,7 @@ class RoomServiceTests {
     void setUp() {
         broadcasts = new ArrayList<>();
         chats = new ArrayList<>();
+        states = new ArrayList<>();
         scheduled = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
@@ -41,8 +43,9 @@ class RoomServiceTests {
         games.noriter.api.room.domain.RoomBroadcaster b = new games.noriter.api.room.domain.RoomBroadcaster() {
             public void broadcast(RoomSnapshot s) { broadcasts.add(s); }
             public void chat(RoomChatMessage m) { chats.add(m); }
+            public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(), List.of(b),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(false, List.of(new games.noriter.api.game.stairs.StairsShared())), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -177,6 +180,46 @@ class RoomServiceTests {
         assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
         assertThat(done.players()).extracting(RoomSnapshot.PlayerSnapshot::id, RoomSnapshot.PlayerSnapshot::rank)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("a", 2), org.assertj.core.groups.Tuple.tuple("b", 1));
+    }
+
+    @Test
+    void coopRoomSharesOneCharacterBetweenTwoPlayers() {
+        var id = service.create("stairs", games.noriter.api.game.GameMode.COOP).id();
+        var room = service.find(id).orElseThrow();
+        assertThat(room.mode()).isEqualTo(games.noriter.api.game.GameMode.COOP);
+        assertThat(room.maxPlayers()).isEqualTo(2);
+        service.join(id, "a", "A");
+        assertThatThrownBy(() -> service.setMaxPlayers(id, "a", 4)).hasMessageContaining("fixed");
+        assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("not enough");
+        service.join(id, "b", "B");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
+        assertThat(states).hasSize(1);
+        @SuppressWarnings("unchecked") var roles = (java.util.Map<String, String>) states.get(0).view().get("roles");
+        assertThat(roles).containsEntry("a", "L").containsEntry("b", "R");
+        var pattern = (String) states.get(0).view().get("pattern");
+
+        char first = pattern.charAt(1);
+        String owner = first == 'L' ? "a" : "b";
+        String other = first == 'L' ? "b" : "a";
+        service.input(id, other, java.util.Map.of("dir", String.valueOf(first)));
+        assertThat((Integer) states.get(states.size() - 1).view().get("steps")).isEqualTo(0);
+        service.input(id, owner, java.util.Map.of("dir", String.valueOf(first)));
+        assertThat((Integer) states.get(states.size() - 1).view().get("steps")).isEqualTo(1);
+        assertThat(scheduled.size()).isGreaterThanOrEqualTo(2);
+
+        char second = pattern.charAt(2);
+        String wrongOwner = second == 'L' ? "b" : "a";
+        service.input(id, wrongOwner, java.util.Map.of("dir", second == 'L' ? "R" : "L"));
+        var done = service.find(id).orElseThrow();
+        assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
+        assertThat(done.players()).allMatch(p -> p.score() == 1 && p.rank() == 1);
+    }
+
+    @Test
+    void coopRejectedForGamesWithoutSharedEngine() {
+        assertThatThrownBy(() -> service.create("2048", games.noriter.api.game.GameMode.COOP)).hasMessageContaining("mode not supported");
     }
 
     @Test
