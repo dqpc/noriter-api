@@ -1,8 +1,6 @@
 package games.noriter.api.room;
 
 import games.noriter.api.game.GameCatalog;
-import games.noriter.api.game.GameMode;
-import games.noriter.api.game.SharedGame;
 import games.noriter.api.room.domain.Room;
 import games.noriter.api.room.domain.RoomBroadcaster;
 import games.noriter.api.room.domain.RoomRepository;
@@ -32,19 +30,10 @@ public class RoomService {
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
-    public RoomSnapshot create(String gameId, GameMode mode) {
-        var spec = games.require(gameId);
-        if (!spec.supports(mode)) throw new RoomException("mode not supported: " + mode);
-        int size = mode == GameMode.COOP
-                ? games.sharedGame(gameId).orElseThrow(() -> new RoomException("coop not available: " + gameId)).players()
-                : spec.defaultMaxPlayers();
-        var room = new Room(newId(), spec, mode, size);
+    public RoomSnapshot create(String gameId) {
+        var room = new Room(newId(), games.require(gameId));
         rooms.save(room);
         return room.snapshot();
-    }
-
-    public RoomSnapshot create(String gameId) {
-        return create(gameId, GameMode.VERSUS);
     }
 
     public Optional<RoomSnapshot> find(String roomId) {
@@ -112,14 +101,7 @@ public class RoomService {
         long seed = room.spec().seeded() ? (random.nextInt(Integer.MAX_VALUE - 1) + 1) : 0L;
         room.countdown(playerId, startAt, seed);
         scheduler.schedule(() -> {
-            if (room.play()) {
-                if (room.mode() == GameMode.COOP) {
-                    var engine = games.sharedGame(room.spec().id()).orElseThrow();
-                    room.shared(engine.start(seed, room.snapshot().options(), room.playerIds(), Instant.now(clock)));
-                    publishGameState(room);
-                }
-                publish(room);
-            }
+            if (room.play()) publish(room);
         }, startAt);
         if (room.endAt() != null) {
             scheduler.schedule(() -> {
@@ -139,37 +121,6 @@ public class RoomService {
         var room = rooms.require(roomId);
         room.finish(playerId, score);
         return publish(room);
-    }
-
-    public void input(String roomId, String playerId, Map<String, Object> input) {
-        var room = rooms.require(roomId);
-        if (room.mode() != GameMode.COOP || room.status() != RoomStatus.PLAYING) throw new RoomException("game is not running");
-        if (!room.hasPlayer(playerId)) throw new RoomException("not in room");
-        var engine = games.sharedGame(room.spec().id()).orElseThrow();
-        var next = engine.apply(room.shared(), playerId, input, Instant.now(clock));
-        settle(room, engine, next);
-    }
-
-    private void settle(Room room, SharedGame engine, games.noriter.api.game.SharedState next) {
-        room.shared(next);
-        publishGameState(room);
-        if (next.ended()) {
-            room.finishAll(next.score());
-            publish(room);
-            return;
-        }
-        var deadline = next.deadline();
-        if (deadline != null) {
-            scheduler.schedule(() -> {
-                if (room.status() != RoomStatus.PLAYING || room.shared() != next) return;
-                settle(room, engine, engine.tick(next, Instant.now(clock)));
-            }, deadline);
-        }
-    }
-
-    private void publishGameState(Room room) {
-        var state = new RoomGameState(room.id(), room.shared().view());
-        broadcasters.forEach(b -> b.gameState(state));
     }
 
     private RoomSnapshot publish(Room room) {

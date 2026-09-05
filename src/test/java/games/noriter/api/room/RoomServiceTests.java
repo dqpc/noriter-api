@@ -22,7 +22,6 @@ class RoomServiceTests {
 
     List<RoomSnapshot> broadcasts;
     List<RoomChatMessage> chats;
-    List<RoomGameState> states;
     List<Runnable> scheduled;
     RoomService service;
 
@@ -30,7 +29,6 @@ class RoomServiceTests {
     void setUp() {
         broadcasts = new ArrayList<>();
         chats = new ArrayList<>();
-        states = new ArrayList<>();
         scheduled = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
@@ -43,9 +41,8 @@ class RoomServiceTests {
         games.noriter.api.room.domain.RoomBroadcaster b = new games.noriter.api.room.domain.RoomBroadcaster() {
             public void broadcast(RoomSnapshot s) { broadcasts.add(s); }
             public void chat(RoomChatMessage m) { chats.add(m); }
-            public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false)), List.of(new games.noriter.api.game.stairs.StairsShared())), List.of(b),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false))), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -180,43 +177,6 @@ class RoomServiceTests {
         assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
         assertThat(done.players()).extracting(RoomSnapshot.PlayerSnapshot::id, RoomSnapshot.PlayerSnapshot::rank)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("a", 2), org.assertj.core.groups.Tuple.tuple("b", 1));
-    }
-
-    @Test
-    void coopRoomSharesOneCharacterBetweenTwoPlayers() {
-        var id = service.create("stairs", games.noriter.api.game.GameMode.COOP).id();
-        var room = service.find(id).orElseThrow();
-        assertThat(room.mode()).isEqualTo(games.noriter.api.game.GameMode.COOP);
-        assertThat(room.maxPlayers()).isEqualTo(2);
-        service.join(id, "a", "A");
-        assertThatThrownBy(() -> service.setMaxPlayers(id, "a", 4)).hasMessageContaining("fixed");
-        assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("not enough");
-        service.join(id, "b", "B");
-        service.start(id, "a");
-        scheduled.get(0).run();
-        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
-        assertThat(states).hasSize(1);
-        @SuppressWarnings("unchecked") var roles = (java.util.Map<String, String>) states.get(0).view().get("roles");
-        assertThat(roles).containsEntry("a", "TURN").containsEntry("b", "CLIMB");
-        var pattern = (String) states.get(0).view().get("pattern");
-
-        service.input(id, "a", java.util.Map.of("action", "CLIMB"));
-        assertThat((Integer) states.get(states.size() - 1).view().get("steps")).isEqualTo(0);
-        service.input(id, "b", java.util.Map.of("action", "CLIMB"));
-        assertThat((Integer) states.get(states.size() - 1).view().get("steps")).isEqualTo(1);
-        assertThat(scheduled.size()).isGreaterThanOrEqualTo(2);
-
-        String facing = (String) states.get(states.size() - 1).view().get("facing");
-        boolean needTurn = Character.toUpperCase(pattern.charAt(2)) != facing.charAt(0);
-        service.input(id, needTurn ? "b" : "a", java.util.Map.of("action", needTurn ? "CLIMB" : "TURN"));
-        var done = service.find(id).orElseThrow();
-        assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
-        assertThat(done.players()).allMatch(p -> p.score() == 1 && p.rank() == 1);
-    }
-
-    @Test
-    void coopRejectedForGamesWithoutSharedEngine() {
-        assertThatThrownBy(() -> service.create("2048", games.noriter.api.game.GameMode.COOP)).hasMessageContaining("mode not supported");
     }
 
     @Test

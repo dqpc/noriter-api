@@ -20,10 +20,6 @@ public sealed interface ServerMessage {
         public Chat(ChatMessage message) { this("chat", message); }
     }
 
-    record GameState(String type, java.util.Map<String, Object> state) implements ServerMessage {
-        public GameState(java.util.Map<String, Object> state) { this("gameState", state); }
-    }
-
     record ChatHistory(String type, java.util.List<ChatMessage> messages) implements ServerMessage {
         public ChatHistory(java.util.List<ChatMessage> messages) { this("chatHistory", messages); }
     }

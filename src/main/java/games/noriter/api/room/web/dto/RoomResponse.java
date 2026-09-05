@@ -1,6 +1,5 @@
 package games.noriter.api.room.web.dto;
 
-import games.noriter.api.game.GameMode;
 import games.noriter.api.room.RoomSnapshot;
 import games.noriter.api.room.RoomStatus;
 import java.time.Instant;
@@ -11,7 +10,6 @@ public record RoomResponse(
         String id,
         String gameId,
         GameInfo game,
-        GameMode mode,
         RoomStatus status,
         String hostId,
         int maxPlayers,
@@ -22,7 +20,7 @@ public record RoomResponse(
         List<Player> players) {
 
     public record GameInfo(String name, int minPlayers, int maxPlayersLimit, Long matchDurationSeconds,
-                           Map<String, List<Object>> optionChoices, List<GameMode> modes) {}
+                           Map<String, List<Object>> optionChoices) {}
 
     public record Player(String id, String nickname, long score, boolean finished, Integer rank) {}
 
@@ -30,8 +28,8 @@ public record RoomResponse(
         var g = s.game();
         return new RoomResponse(
                 s.id(), s.gameId(),
-                new GameInfo(g.name(), g.minPlayers(), g.maxPlayersLimit(), g.matchDurationSeconds(), g.optionChoices(), g.modes()),
-                s.mode(), s.status(), s.hostId(), s.maxPlayers(), s.options(), s.seed(), s.startAt(), s.endAt(),
+                new GameInfo(g.name(), g.minPlayers(), g.maxPlayersLimit(), g.matchDurationSeconds(), g.optionChoices()),
+                s.status(), s.hostId(), s.maxPlayers(), s.options(), s.seed(), s.startAt(), s.endAt(),
                 s.players().stream().map(p -> new Player(p.id(), p.nickname(), p.score(), p.finished(), p.rank())).toList());
     }
 }
