@@ -235,8 +235,54 @@ class RoomServiceTests {
         service.action(id, "a", java.util.Map.of("type", "throw"));
         assertThat(states.size()).isGreaterThanOrEqualTo(2);
         service.leave(id, "b");
-        assertThat(service.find(id).orElseThrow().players()).hasSize(2);
+        var afterLeave = service.find(id).orElseThrow();
+        assertThat(afterLeave.players()).hasSize(2);
+        assertThat(afterLeave.players().get(1).connected()).isFalse();
         assertThat(((java.util.List<?>) states.get(states.size() - 1).view().get("players"))).hasSize(2);
+        assertThat(botOf(states.get(states.size() - 1), "b")).isTrue();
+
+        service.join(id, "b", "B", "ox");
+        var afterRejoin = service.find(id).orElseThrow();
+        assertThat(afterRejoin.players().get(1).connected()).isTrue();
+        assertThat(botOf(states.get(states.size() - 1), "b")).isFalse();
+        assertThat(chats).extracting(RoomChatMessage::text).contains("B 님이 다시 들어왔습니다");
+        assertThatThrownBy(() -> service.join(id, "c", "C", "tiger")).hasMessageContaining("already started");
+    }
+
+    @Test
+    void disconnectDuringRelayGameKeepsSeatAndRemovesRoomAfterGraceWhenNobodyReturns() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rat");
+        service.join(id, "b", "B", "ox");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.leave(id, "a");
+        var snap = service.find(id).orElseThrow();
+        assertThat(snap.players()).hasSize(2);
+        assertThat(snap.hostId()).isEqualTo("b");
+        assertThat(snap.players().get(0).connected()).isFalse();
+        service.finish(id, "b", 10);
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.FINISHED);
+        service.leave(id, "b");
+        assertThat(service.find(id)).isEmpty();
+    }
+
+    @Test
+    void roomAbandonedMidGameIsRemovedAfterGrace() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rat");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.leave(id, "a");
+        assertThat(service.find(id)).isPresent();
+        scheduled.get(scheduled.size() - 1).run();
+        assertThat(service.find(id)).isEmpty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean botOf(RoomGameState state, String playerId) {
+        var players = (java.util.List<java.util.Map<String, Object>>) state.view().get("players");
+        return players.stream().filter(p -> playerId.equals(p.get("id"))).map(p -> (Boolean) p.get("bot")).findFirst().orElseThrow();
     }
 
     @Test

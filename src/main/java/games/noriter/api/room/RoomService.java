@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 public class RoomService {
 
     static final Duration COUNTDOWN = Duration.ofSeconds(3);
+    static final Duration ABANDON_GRACE = Duration.ofSeconds(60);
     private static final String ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
     private static final int ID_LENGTH = 8;
 
@@ -44,8 +45,19 @@ public class RoomService {
 
     public RoomSnapshot join(String roomId, String playerId, String nickname, String character) {
         var room = rooms.require(roomId);
-        room.join(playerId, nickname, character);
-        system(room, nickname + " 님이 들어왔습니다");
+        var joined = room.join(playerId, nickname, character);
+        var name = room.nicknameOf(playerId);
+        switch (joined) {
+            case NEW -> system(room, name + " 님이 들어왔습니다");
+            case REJOINED -> {
+                if (room.status() == RoomStatus.PLAYING && room.turn() != null) {
+                    var engine = games.turnGame(room.spec().id()).orElseThrow();
+                    settle(room, engine, engine.rejoin(room.turn(), playerId, Instant.now(clock)));
+                }
+                system(room, name + " 님이 다시 들어왔습니다");
+            }
+            case ALREADY -> { }
+        }
         var snap = publish(room);
         if (room.turn() != null) broadcasters.forEach(b -> b.gameState(new RoomGameState(room.id(), room.turn().view())));
         return snap;
@@ -54,18 +66,28 @@ public class RoomService {
     public void leave(String roomId, String playerId) {
         rooms.find(roomId).ifPresent(room -> {
             var nickname = room.nicknameOf(playerId);
-            if (room.spec().turnBased() && room.status() == RoomStatus.PLAYING && room.turn() != null && room.hasPlayer(playerId)) {
-                var engine = games.turnGame(room.spec().id()).orElseThrow();
-                settle(room, engine, engine.leave(room.turn(), playerId, Instant.now(clock)));
-                if (nickname != null) system(room, nickname + " 님이 나갔습니다. 봇이 대신합니다");
+            if (nickname == null) return;
+            boolean seatKept = room.disconnect(playerId);
+            if (seatKept) {
+                if (room.spec().turnBased() && room.status() == RoomStatus.PLAYING && room.turn() != null) {
+                    var engine = games.turnGame(room.spec().id()).orElseThrow();
+                    settle(room, engine, engine.leave(room.turn(), playerId, Instant.now(clock)));
+                    system(room, nickname + " 님의 연결이 끊겼습니다. 돌아올 때까지 봇이 대신합니다");
+                } else {
+                    system(room, nickname + " 님의 연결이 끊겼습니다");
+                }
                 publish(room);
+                if (!room.hasConnectedPlayer()) {
+                    scheduler.schedule(() -> {
+                        if (!room.hasConnectedPlayer()) rooms.remove(roomId);
+                    }, Instant.now(clock).plus(ABANDON_GRACE));
+                }
                 return;
             }
-            room.leave(playerId);
-            if (room.isEmpty()) {
+            if (room.isEmpty() || !room.hasConnectedPlayer()) {
                 rooms.remove(roomId);
             } else {
-                if (nickname != null) system(room, nickname + " 님이 나갔습니다");
+                system(room, nickname + " 님이 나갔습니다");
                 publish(room);
             }
         });
@@ -167,7 +189,9 @@ public class RoomService {
             if (room.play()) {
                 if (room.spec().turnBased()) {
                     var engine = games.turnGame(room.spec().id()).orElseThrow();
-                    var state = engine.start(seed, room.snapshot().options(), room.playerIds(), Instant.now(clock));
+                    var now = Instant.now(clock);
+                    var state = engine.start(seed, room.snapshot().options(), room.playerIds(), now);
+                    for (var gone : room.disconnectedPlayerIds()) state = engine.leave(state, gone, now);
                     settle(room, engine, state);
                 }
                 publish(room);
