@@ -16,7 +16,7 @@ public class GameCatalog {
     private final Map<String, GameSpec> specs = new LinkedHashMap<>();
 
     public GameCatalog(@Value("${noriter.game.dev-options:false}") boolean devOptions) {
-        this(List.of(game2048(devOptions)));
+        this(List.of(game2048(devOptions), stairs()));
     }
 
     public GameCatalog() {
@@ -32,6 +32,11 @@ public class GameCatalog {
         if (devOptions) targets.add(0, 64);
         return new GameSpec("2048", "2048", 1, 4, 8, Duration.ofMinutes(3), true, true,
                 Map.of("target", List.copyOf(targets)), Map.of("target", 2048));
+    }
+
+    private static GameSpec stairs() {
+        return new GameSpec("stairs", "계단 오르기", 1, 4, 8, null, true, true,
+                Map.of("speed", List.of("normal", "fast")), Map.of("speed", "normal"));
     }
 
     public Optional<GameSpec> find(String id) {
