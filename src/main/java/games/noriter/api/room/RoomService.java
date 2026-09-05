@@ -86,7 +86,7 @@ public class RoomService {
     public RoomSnapshot rematch(String roomId, String playerId) {
         var room = rooms.require(roomId);
         room.rematch(playerId);
-        return publish(room);
+        return beginCountdown(room, playerId);
     }
 
     public void relayState(String roomId, String playerId, Map<String, Object> state) {
@@ -116,6 +116,10 @@ public class RoomService {
 
     public RoomSnapshot start(String roomId, String playerId) {
         var room = rooms.require(roomId);
+        return beginCountdown(room, playerId);
+    }
+
+    private RoomSnapshot beginCountdown(Room room, String playerId) {
         var startAt = Instant.now(clock).plus(COUNTDOWN);
         long seed = room.spec().seeded() ? (random.nextInt(Integer.MAX_VALUE - 1) + 1) : 0L;
         room.countdown(playerId, startAt, seed);
