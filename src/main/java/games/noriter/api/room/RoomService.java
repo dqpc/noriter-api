@@ -1,6 +1,8 @@
 package games.noriter.api.room;
 
 import games.noriter.api.game.GameCatalog;
+import games.noriter.api.game.TurnGame;
+import games.noriter.api.game.TurnState;
 import games.noriter.api.room.domain.Room;
 import games.noriter.api.room.domain.RoomBroadcaster;
 import games.noriter.api.room.domain.RoomRepository;
@@ -44,12 +46,21 @@ public class RoomService {
         var room = rooms.require(roomId);
         room.join(playerId, nickname, character);
         system(room, nickname + " 님이 들어왔습니다");
-        return publish(room);
+        var snap = publish(room);
+        if (room.turn() != null) broadcasters.forEach(b -> b.gameState(new RoomGameState(room.id(), room.turn().view())));
+        return snap;
     }
 
     public void leave(String roomId, String playerId) {
         rooms.find(roomId).ifPresent(room -> {
             var nickname = room.nicknameOf(playerId);
+            if (room.spec().turnBased() && room.status() == RoomStatus.PLAYING && room.turn() != null && room.hasPlayer(playerId)) {
+                var engine = games.turnGame(room.spec().id()).orElseThrow();
+                settle(room, engine, engine.leave(room.turn(), playerId, Instant.now(clock)));
+                if (nickname != null) system(room, nickname + " 님이 나갔습니다. 봇이 대신합니다");
+                publish(room);
+                return;
+            }
             room.leave(playerId);
             if (room.isEmpty()) {
                 rooms.remove(roomId);
@@ -96,6 +107,35 @@ public class RoomService {
         broadcasters.forEach(b -> b.playerState(msg));
     }
 
+    public void action(String roomId, String playerId, Map<String, Object> action) {
+        var room = rooms.require(roomId);
+        if (!room.spec().turnBased() || room.status() != RoomStatus.PLAYING || room.turn() == null) throw new RoomException("game is not running");
+        if (!room.hasPlayer(playerId)) throw new RoomException("not in room");
+        var engine = games.turnGame(room.spec().id()).orElseThrow();
+        try {
+            settle(room, engine, engine.apply(room.turn(), playerId, action, Instant.now(clock)));
+        } catch (IllegalArgumentException e) {
+            throw new RoomException(e.getMessage());
+        }
+    }
+
+    private void settle(Room room, TurnGame engine, TurnState state) {
+        int version = room.setTurn(state);
+        broadcasters.forEach(b -> b.gameState(new RoomGameState(room.id(), state.view())));
+        if (state.ended()) {
+            room.finishWithScores(state.scores());
+            publish(room);
+            return;
+        }
+        var deadline = state.deadline();
+        if (deadline != null) {
+            scheduler.schedule(() -> {
+                if (room.status() != RoomStatus.PLAYING || room.turnVersion() != version) return;
+                settle(room, engine, engine.auto(state, Instant.now(clock)));
+            }, deadline);
+        }
+    }
+
     public RoomSnapshot setCharacter(String roomId, String playerId, String character) {
         var room = rooms.require(roomId);
         room.setCharacter(playerId, character);
@@ -124,7 +164,14 @@ public class RoomService {
         long seed = room.spec().seeded() ? (random.nextInt(Integer.MAX_VALUE - 1) + 1) : 0L;
         room.countdown(playerId, startAt, seed);
         scheduler.schedule(() -> {
-            if (room.play()) publish(room);
+            if (room.play()) {
+                if (room.spec().turnBased()) {
+                    var engine = games.turnGame(room.spec().id()).orElseThrow();
+                    var state = engine.start(seed, room.snapshot().options(), room.playerIds(), Instant.now(clock));
+                    settle(room, engine, state);
+                }
+                publish(room);
+            }
         }, startAt);
         if (room.endAt() != null) {
             scheduler.schedule(() -> {

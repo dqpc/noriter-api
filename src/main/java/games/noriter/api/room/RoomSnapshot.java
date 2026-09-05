@@ -24,5 +24,7 @@ public record RoomSnapshot(
             int minPlayers,
             int maxPlayersLimit,
             Long matchDurationSeconds,
-            Map<String, List<Object>> optionChoices) {}
+            Map<String, List<Object>> optionChoices,
+            boolean turnBased,
+            boolean uniqueCharacters) {}
 }

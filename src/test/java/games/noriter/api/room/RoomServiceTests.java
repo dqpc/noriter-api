@@ -23,6 +23,7 @@ class RoomServiceTests {
     List<RoomSnapshot> broadcasts;
     List<RoomChatMessage> chats;
     List<RoomPlayerState> relayed;
+    List<RoomGameState> states;
     List<Runnable> scheduled;
     RoomService service;
 
@@ -31,6 +32,7 @@ class RoomServiceTests {
         broadcasts = new ArrayList<>();
         chats = new ArrayList<>();
         relayed = new ArrayList<>();
+        states = new ArrayList<>();
         scheduled = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
@@ -44,8 +46,9 @@ class RoomServiceTests {
             public void broadcast(RoomSnapshot s) { broadcasts.add(s); }
             public void chat(RoomChatMessage m) { chats.add(m); }
             public void playerState(RoomPlayerState s) { relayed.add(s); }
+            public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false))), List.of(b),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false)), List.of(new games.noriter.api.game.yut.YutGame())), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -213,6 +216,27 @@ class RoomServiceTests {
         assertThat(again.players()).allMatch(p -> p.score() == 0 && !p.finished() && p.rank() == null);
         assertThat(again.players()).hasSize(2);
         assertThatThrownBy(() -> service.rematch(id, "a")).hasMessageContaining("not finished");
+    }
+
+    @Test
+    void turnBasedRoomStartsEngineAndRejectsDuplicateCharacters() {
+        var id = service.create("yut").id();
+        assertThat(service.find(id).orElseThrow().game().turnBased()).isTrue();
+        service.join(id, "a", "A", "rat");
+        service.join(id, "b", "B", "rat");
+        assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("duplicate");
+        service.setCharacter(id, "b", "ox");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
+        assertThat(states).hasSize(1);
+        assertThat(states.get(0).view().get("turn")).isEqualTo("a");
+        assertThatThrownBy(() -> service.action(id, "b", java.util.Map.of("type", "throw"))).hasMessageContaining("not your turn");
+        service.action(id, "a", java.util.Map.of("type", "throw"));
+        assertThat(states.size()).isGreaterThanOrEqualTo(2);
+        service.leave(id, "b");
+        assertThat(service.find(id).orElseThrow().players()).hasSize(2);
+        assertThat(((java.util.List<?>) states.get(states.size() - 1).view().get("players"))).hasSize(2);
     }
 
     @Test

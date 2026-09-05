@@ -6,6 +6,7 @@ import games.noriter.api.room.RoomSnapshot;
 import games.noriter.api.room.RoomStatus;
 
 import games.noriter.api.game.GameSpec;
+import games.noriter.api.game.TurnState;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -19,6 +20,8 @@ public class Room {
 
     private final String id;
     private final GameSpec spec;
+    private TurnState turn;
+    private int turnVersion;
     private final Map<String, Player> players = new LinkedHashMap<>();
     private final Deque<RoomChatMessage> chat = new ArrayDeque<>();
     private static final int CHAT_HISTORY = 50;
@@ -43,6 +46,25 @@ public class Room {
     public Instant startAt() { return startAt; }
     public Instant endAt() { return endAt; }
     public boolean isEmpty() { return players.isEmpty(); }
+
+    public TurnState turn() { return turn; }
+    public synchronized int turnVersion() { return turnVersion; }
+    public synchronized int setTurn(TurnState state) { this.turn = state; return ++turnVersion; }
+
+    public synchronized List<String> playerIds() {
+        return List.copyOf(players.keySet());
+    }
+
+    public synchronized boolean hasDuplicateCharacters() {
+        var seen = new java.util.HashSet<String>();
+        for (var p : players.values()) if (p.character != null && !seen.add(p.character)) return true;
+        return false;
+    }
+
+    public synchronized void finishWithScores(Map<String, Long> scores) {
+        players.values().forEach(p -> { p.score = scores.getOrDefault(p.id, 0L); p.finished = true; });
+        status = RoomStatus.FINISHED;
+    }
 
     public synchronized String nicknameOf(String playerId) {
         var p = players.get(playerId);
@@ -111,6 +133,7 @@ public class Room {
         requireHost(playerId);
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
         if (players.size() < spec.minPlayers()) throw new RoomException("not enough players");
+        if (spec.uniqueCharacters() && hasDuplicateCharacters()) throw new RoomException("duplicate characters");
         this.status = RoomStatus.COUNTDOWN;
         this.startAt = startAt;
         this.endAt = spec.matchDuration() == null ? null : startAt.plus(spec.matchDuration());
@@ -121,6 +144,7 @@ public class Room {
         requireHost(playerId);
         if (status != RoomStatus.FINISHED) throw new RoomException("game is not finished");
         players.values().forEach(p -> { p.score = 0; p.finished = false; });
+        turn = null;
         status = RoomStatus.WAITING;
         startAt = null;
         endAt = null;
@@ -174,7 +198,7 @@ public class Room {
                 .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.character, p.score, p.finished, ranks.get(p.id)))
                 .toList();
         var info = new RoomSnapshot.GameInfo(spec.name(), spec.minPlayers(), spec.maxPlayersLimit(),
-                spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices());
+                spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices(), spec.turnBased(), spec.uniqueCharacters());
         return new RoomSnapshot(id, spec.id(), info, status, hostId, maxPlayers, Map.copyOf(options), seed, startAt, endAt, list);
     }
 
