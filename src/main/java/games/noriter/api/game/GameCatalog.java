@@ -28,8 +28,7 @@ public class GameCatalog {
     }
 
     private static GameSpec stairs() {
-        return new GameSpec("stairs", "계단 오르기", 1, 4, 8, null, true, true,
-                Map.of("speed", List.of("normal", "fast")), Map.of("speed", "normal"));
+        return new GameSpec("stairs", "계단 오르기", 1, 4, 8, null, true, true, Map.of(), Map.of());
     }
 
     public Optional<GameSpec> find(String id) {
