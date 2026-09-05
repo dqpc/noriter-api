@@ -1,6 +1,7 @@
 package games.noriter.api.room.web;
 
 import games.noriter.api.game.UnknownGameException;
+import games.noriter.api.room.RoomException;
 import games.noriter.api.room.RoomService;
 import games.noriter.api.room.web.dto.CreateRoomRequest;
 import games.noriter.api.room.web.dto.RoomResponse;
@@ -29,7 +30,7 @@ class RoomController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     RoomResponse create(@RequestBody @Validated CreateRoomRequest req) {
-        return RoomResponse.from(rooms.create(req.gameId()));
+        return RoomResponse.from(rooms.create(req.gameId(), req.modeOrDefault()));
     }
 
     @GetMapping("/{roomId}")
@@ -38,8 +39,8 @@ class RoomController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @ExceptionHandler(UnknownGameException.class)
-    ResponseEntity<String> unknownGame(UnknownGameException e) {
+    @ExceptionHandler({UnknownGameException.class, RoomException.class})
+    ResponseEntity<String> badRequest(RuntimeException e) {
         return ResponseEntity.badRequest().body(e.getMessage());
     }
 }
