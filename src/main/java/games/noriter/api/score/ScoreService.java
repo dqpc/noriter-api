@@ -9,21 +9,17 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class ScoreService {
 
     private final GameScoreRepository scores;
     private final UserService users;
     private final ApplicationEventPublisher events;
-
-    ScoreService(GameScoreRepository scores, UserService users, ApplicationEventPublisher events) {
-        this.scores = scores;
-        this.users = users;
-        this.events = events;
-    }
 
     @Transactional
     public void submit(String gameId, Long userId, long score) {

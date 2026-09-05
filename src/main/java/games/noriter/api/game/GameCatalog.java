@@ -1,15 +1,13 @@
 package games.noriter.api.game;
 
+import games.noriter.api.config.NoriterProperties;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,17 +16,9 @@ public class GameCatalog {
     private final Map<String, GameSpec> specs = new LinkedHashMap<>();
     private final Map<String, SharedGame> sharedGames;
 
-    @Autowired
-    public GameCatalog(@Value("${noriter.game.dev-options:false}") boolean devOptions, List<SharedGame> sharedGames) {
-        this(List.of(game2048(devOptions), stairs()), sharedGames);
-    }
-
-    public GameCatalog() {
-        this(false, List.of());
-    }
-
-    GameCatalog(Collection<GameSpec> initial, List<SharedGame> sharedGames) {
-        initial.forEach(s -> specs.put(s.id(), s));
+    public GameCatalog(NoriterProperties props, List<SharedGame> sharedGames) {
+        boolean devOptions = props.game() != null && props.game().devOptions();
+        List.of(game2048(devOptions), stairs()).forEach(s -> specs.put(s.id(), s));
         this.sharedGames = sharedGames.stream().collect(Collectors.toMap(SharedGame::gameId, g -> g));
     }
 

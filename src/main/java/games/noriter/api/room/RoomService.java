@@ -13,10 +13,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class RoomService {
 
     static final Duration COUNTDOWN = Duration.ofSeconds(3);
@@ -29,15 +31,6 @@ public class RoomService {
     private final TaskScheduler scheduler;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
-
-    public RoomService(RoomRepository rooms, GameCatalog games, List<RoomBroadcaster> broadcasters,
-                TaskScheduler scheduler, Clock clock) {
-        this.rooms = rooms;
-        this.games = games;
-        this.broadcasters = broadcasters;
-        this.scheduler = scheduler;
-        this.clock = clock;
-    }
 
     public RoomSnapshot create(String gameId, GameMode mode) {
         var spec = games.require(gameId);

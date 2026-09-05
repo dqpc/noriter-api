@@ -15,17 +15,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/rooms")
+@RequiredArgsConstructor
 class RoomController {
 
     private final RoomService rooms;
-
-    RoomController(RoomService rooms) {
-        this.rooms = rooms;
-    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

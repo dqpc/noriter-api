@@ -7,17 +7,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/games/{gameId}/leaderboard")
+@RequiredArgsConstructor
 class LeaderboardController {
 
     private final ScoreService scores;
-
-    LeaderboardController(ScoreService scores) {
-        this.scores = scores;
-    }
 
     @GetMapping
     List<LeaderboardEntryResponse> leaderboard(

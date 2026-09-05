@@ -14,22 +14,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@RequiredArgsConstructor
 public class RoomSessions implements RoomBroadcaster {
 
     private static final Logger log = LoggerFactory.getLogger(RoomSessions.class);
 
     private final ObjectMapper json;
     private final Map<String, Set<WebSocketSession>> byRoom = new ConcurrentHashMap<>();
-
-    RoomSessions(ObjectMapper json) {
-        this.json = json;
-    }
 
     public void add(String roomId, WebSocketSession session) {
         byRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArraySet<>()).add(session);

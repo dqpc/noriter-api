@@ -45,7 +45,7 @@ class RoomServiceTests {
             public void chat(RoomChatMessage m) { chats.add(m); }
             public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(false, List.of(new games.noriter.api.game.stairs.StairsShared())), List.of(b),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false)), List.of(new games.noriter.api.game.stairs.StairsShared())), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
