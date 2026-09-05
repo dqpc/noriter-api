@@ -21,8 +21,8 @@ public class StairsShared implements SharedGame {
     record Rules(double maxEnergy, double drainPerSec, double gainPerStep, double drainGrowthPerStep) {
         static Rules of(Object speed) {
             return "fast".equals(String.valueOf(speed))
-                    ? new Rules(100, 38, 8, 0.12)
-                    : new Rules(100, 28, 9, 0.08);
+                    ? new Rules(100, 30, 8, 0.08)
+                    : new Rules(100, 22, 9, 0.05);
         }
     }
 
