@@ -180,6 +180,15 @@ class RoomServiceTests {
     }
 
     @Test
+    void playerCanChangeCharacter() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rabbit");
+        var snap = service.setCharacter(id, "a", "tiger");
+        assertThat(snap.players().get(0).character()).isEqualTo("tiger");
+        assertThatThrownBy(() -> service.setCharacter(id, "zzz", "ox")).hasMessageContaining("not in room");
+    }
+
+    @Test
     void rejectsUnknownGame() {
         assertThatThrownBy(() -> service.create("nope")).hasMessageContaining("unknown game");
     }
