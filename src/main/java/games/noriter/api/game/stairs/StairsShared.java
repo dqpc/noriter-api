@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component;
 public class StairsShared implements SharedGame {
 
     private static final int PATTERN_AHEAD = 60;
+    private static final int ITEM_MIN_STEP = 5;
+    private static final double ITEM_CHANCE = 0.08;
+    private static final long ITEM_SEED_MIX = 0x9e3779b9L;
 
     record Rules(double maxEnergy, double drainPerSec, double gainPerStep, double drainGrowthPerStep) {
         static Rules of(Object speed) {
@@ -61,15 +64,25 @@ public class StairsShared implements SharedGame {
         }
     }
 
+    /** 대문자 = 일반 계단, 소문자 = 번개(에너지 회복) 계단 */
     static String pattern(long seed, int upTo) {
-        var rng = new Random(seed);
+        var dirs = new Random(seed);
+        var items = new Random(seed ^ ITEM_SEED_MIX);
         var sb = new StringBuilder(upTo + 1).append('R');
-        for (int i = 1; i <= upTo; i++) sb.append(rng.nextBoolean() ? 'L' : 'R');
+        for (int i = 1; i <= upTo; i++) {
+            char c = dirs.nextBoolean() ? 'L' : 'R';
+            boolean item = i >= ITEM_MIN_STEP && items.nextDouble() < ITEM_CHANCE;
+            sb.append(item ? Character.toLowerCase(c) : c);
+        }
         return sb.toString();
     }
 
     static char dirAt(long seed, int i) {
-        return pattern(seed, i).charAt(i);
+        return Character.toUpperCase(pattern(seed, i).charAt(i));
+    }
+
+    static boolean itemAt(long seed, int i) {
+        return Character.isLowerCase(pattern(seed, i).charAt(i));
     }
 
     @Override public String gameId() { return "stairs"; }
@@ -96,8 +109,11 @@ public class StairsShared implements SharedGame {
         if (dirAt(s.seed(), s.steps() + 1) != dir.charAt(0)) {
             return new State(s.seed(), s.rules(), s.roles(), s.steps(), energy, now, true, true, true);
         }
-        double gained = Math.min(s.rules().maxEnergy(), energy + s.rules().gainPerStep());
-        return new State(s.seed(), s.rules(), s.roles(), s.steps() + 1, gained, now, true, false, false);
+        int next = s.steps() + 1;
+        double gained = itemAt(s.seed(), next)
+                ? s.rules().maxEnergy()
+                : Math.min(s.rules().maxEnergy(), energy + s.rules().gainPerStep());
+        return new State(s.seed(), s.rules(), s.roles(), next, gained, now, true, false, false);
     }
 
     @Override
