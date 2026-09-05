@@ -15,7 +15,7 @@ class YutGameTests {
 
     @Test
     void turnFlowThrowThenMoveThenNextPlayer() {
-        var s = (YutState) game.start(7, Map.of("pieces", 2), List.of("a", "b"), t0);
+        var s = (YutState) game.start(7, Map.of("pieces", 2, "cards", false), List.of("a", "b"), t0);
         assertThat(s.currentPlayer()).isEqualTo("a");
         assertThat(s.deadline()).isEqualTo(t0.plusSeconds(30));
         assertThatThrownBy(() -> game.apply(s, "b", Map.of("type", "throw"), t0)).hasMessageContaining("not your turn");
@@ -34,7 +34,7 @@ class YutGameTests {
 
     @Test
     void autoPlaysToTheEndWithBots() {
-        var s = (YutState) game.start(11, Map.of("pieces", 2), List.of("a", "b", "c"), t0);
+        var s = (YutState) game.start(11, Map.of("pieces", 2, "cards", false), List.of("a", "b", "c"), t0);
         game.leave(s, "a", t0);
         game.leave(s, "b", t0);
         game.leave(s, "c", t0);
@@ -55,9 +55,9 @@ class YutGameTests {
 
     @Test
     void illegalMoveRejected() {
-        var s = (YutState) game.start(3, Map.of(), List.of("a", "b"), t0);
+        var s = (YutState) game.start(3, Map.of("cards", false), List.of("a", "b"), t0);
         s.phase = YutState.Phase.MOVE;
-        s.queue.add(Throw.DO);
+        s.queue.add(YutState.Rolled.of(Throw.DO));
         assertThatThrownBy(() -> game.apply(s, "a", Map.of("type", "move", "pieceId", 0, "result", "MO"), t0)).hasMessageContaining("illegal move");
     }
 }

@@ -69,7 +69,7 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | → | chat | `{text}` 200자 |
 | → | rematch | 방장, 종료 후. 점수 초기화하고 바로 카운트다운 |
 | → | ping | 30초마다. 프록시 유휴 종료 방지 |
-| → | action | 턴제 게임의 수. 윷놀이: `{type:"throw"}`, `{type:"move", pieceId, result, via?}` |
+| → | action | 턴제 게임의 수. 윷놀이: `{type:"throw", result?}`(골라 던지기 카드일 때 result), `{type:"move", pieceId, result, steps?, via?}`, `{type:"card", index}`, `{type:"surrender"}` |
 | ← | hello | `{playerId}` join 직후. 토큰을 보냈으면 그 값 |
 | ← | room | 방 스냅샷 (상태·참가자(`connected` 포함)·설정·seed·시각). 변경마다 전원 |
 | ← | playerState | `{playerId, state}` 다른 참가자의 게임 상태 |
@@ -86,7 +86,7 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 ```
 config/   보안, 스케줄러, 설정 프로퍼티
 game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·turnBased). TurnGame 인터페이스
-  yut/    윷놀이 규칙·봇 (29칸 경로, 지름길, 빽도, 잡기·업기, 턴 30초)
+  yut/    윷놀이 규칙·봇 (29칸 경로, 지름길, 빽도, 잡기·업기, 턴 30초), 천사·악마 카드(잡기·방 도착·시작 때 천사 4 + 악마 1 더미에서 한 장, 15초), 항복
 user/     계정 (로그인 예정)
 score/    점수·리더보드
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
