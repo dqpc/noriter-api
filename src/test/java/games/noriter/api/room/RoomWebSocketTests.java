@@ -67,7 +67,7 @@ class RoomWebSocketTests {
         var rest = RestClient.create("http://localhost:" + port);
         var created = rest.post().uri("/api/rooms").body(Map.of("gameId", "2048")).retrieve().body(JsonNode.class);
         var roomId = created.get("id").asText();
-        assertThat(roomId).hasSize(8);
+        assertThat(roomId).hasSize(4);
 
         var host = new Client(roomId);
         host.send(Map.of("type", "join", "nickname", "goose", "character", "tiger", "playerId", "host-token-1234567890"));

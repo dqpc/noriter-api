@@ -24,7 +24,7 @@ public class RoomService {
     static final Duration COUNTDOWN = Duration.ofSeconds(3);
     static final Duration ABANDON_GRACE = Duration.ofSeconds(60);
     private static final String ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
-    private static final int ID_LENGTH = 8;
+    private static final int ID_LENGTH = 4;
 
     private final RoomRepository rooms;
     private final GameCatalog games;
