@@ -1,6 +1,7 @@
 package games.noriter.api.room.infra;
 
 import games.noriter.api.room.RoomChatMessage;
+import games.noriter.api.room.RoomGameState;
 import games.noriter.api.room.RoomPlayerState;
 import games.noriter.api.room.RoomSnapshot;
 import games.noriter.api.room.domain.RoomBroadcaster;
@@ -28,6 +29,22 @@ public class RoomSessions implements RoomBroadcaster {
 
     private final ObjectMapper json;
     private final Map<String, Set<WebSocketSession>> byRoom = new ConcurrentHashMap<>();
+
+    private static final String PLAYER_ATTR = "playerId";
+
+    public static void bind(WebSocketSession session, String playerId) {
+        session.getAttributes().put(PLAYER_ATTR, playerId);
+    }
+
+    public static String playerId(WebSocketSession session) {
+        var id = session.getAttributes().get(PLAYER_ATTR);
+        return id == null ? session.getId() : id.toString();
+    }
+
+    public boolean hasPlayer(String roomId, String playerId) {
+        var set = byRoom.get(roomId);
+        return set != null && set.stream().anyMatch(s -> playerId.equals(playerId(s)));
+    }
 
     public void add(String roomId, WebSocketSession session) {
         byRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArraySet<>()).add(session);
@@ -57,12 +74,20 @@ public class RoomSessions implements RoomBroadcaster {
     }
 
     @Override
+    public void gameState(RoomGameState state) {
+        var set = byRoom.get(state.roomId());
+        if (set == null) return;
+        var payload = new ServerMessage.GameState(state.view());
+        set.forEach(s -> send(s, payload));
+    }
+
+    @Override
     public void playerState(RoomPlayerState state) {
         var set = byRoom.get(state.roomId());
         if (set == null) return;
         var payload = new ServerMessage.PlayerState(state.playerId(), state.state());
         set.forEach(s -> {
-            if (!s.getId().equals(state.playerId())) send(s, payload);
+            if (!playerId(s).equals(state.playerId())) send(s, payload);
         });
     }
 

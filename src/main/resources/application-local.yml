@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/noriter}
+    username: ${DB_USER:noriter}
+    password: ${DB_PASSWORD:noriter}
+
+server:
+  port: ${PORT:8080}
+
+noriter:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  game:
+    dev-options: true

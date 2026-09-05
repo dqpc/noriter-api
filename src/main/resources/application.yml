@@ -1,31 +1,20 @@
 spring:
   application:
     name: noriter-api
+  profiles:
+    default: local
   threads:
     virtual:
       enabled: true
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/noriter}
-    username: ${DB_USER:noriter}
-    password: ${DB_PASSWORD:noriter}
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-      naming:
-        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
   flyway:
     locations: classpath:db/migration
 
 server:
-  port: ${PORT:8080}
-  forward-headers-strategy: framework   # Cloudflare Tunnel / 프록시 뒤에서 동작
-
-noriter:
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
-  game:
-    dev-options: ${NORITER_DEV_OPTIONS:false}
+  forward-headers-strategy: framework
 
 management:
   endpoints:
@@ -41,5 +30,5 @@ spring.modulith:
   events:
     jdbc:
       schema-initialization:
-        enabled: true   # event_publication 테이블. Flyway 로 옮길 때 false 로.
+        enabled: true
     republish-outstanding-events-on-restart: true

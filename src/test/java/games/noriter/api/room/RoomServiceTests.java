@@ -23,6 +23,7 @@ class RoomServiceTests {
     List<RoomSnapshot> broadcasts;
     List<RoomChatMessage> chats;
     List<RoomPlayerState> relayed;
+    List<RoomGameState> states;
     List<Runnable> scheduled;
     RoomService service;
 
@@ -31,6 +32,7 @@ class RoomServiceTests {
         broadcasts = new ArrayList<>();
         chats = new ArrayList<>();
         relayed = new ArrayList<>();
+        states = new ArrayList<>();
         scheduled = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
@@ -44,8 +46,9 @@ class RoomServiceTests {
             public void broadcast(RoomSnapshot s) { broadcasts.add(s); }
             public void chat(RoomChatMessage m) { chats.add(m); }
             public void playerState(RoomPlayerState s) { relayed.add(s); }
+            public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false))), List.of(b),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false)), List.of(new games.noriter.api.game.yut.YutGame())), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -213,6 +216,73 @@ class RoomServiceTests {
         assertThat(again.players()).allMatch(p -> p.score() == 0 && !p.finished() && p.rank() == null);
         assertThat(again.players()).hasSize(2);
         assertThatThrownBy(() -> service.rematch(id, "a")).hasMessageContaining("not finished");
+    }
+
+    @Test
+    void turnBasedRoomStartsEngineAndRejectsDuplicateCharacters() {
+        var id = service.create("yut").id();
+        assertThat(service.find(id).orElseThrow().game().turnBased()).isTrue();
+        service.join(id, "a", "A", "rat");
+        service.join(id, "b", "B", "rat");
+        assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("duplicate");
+        service.setCharacter(id, "b", "ox");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
+        assertThat(states).hasSize(1);
+        assertThat(states.get(0).view().get("turn")).isEqualTo("a");
+        assertThatThrownBy(() -> service.action(id, "b", java.util.Map.of("type", "throw"))).hasMessageContaining("not your turn");
+        service.action(id, "a", java.util.Map.of("type", "throw"));
+        assertThat(states.size()).isGreaterThanOrEqualTo(2);
+        service.leave(id, "b");
+        var afterLeave = service.find(id).orElseThrow();
+        assertThat(afterLeave.players()).hasSize(2);
+        assertThat(afterLeave.players().get(1).connected()).isFalse();
+        assertThat(((java.util.List<?>) states.get(states.size() - 1).view().get("players"))).hasSize(2);
+        assertThat(botOf(states.get(states.size() - 1), "b")).isTrue();
+
+        service.join(id, "b", "B", "ox");
+        var afterRejoin = service.find(id).orElseThrow();
+        assertThat(afterRejoin.players().get(1).connected()).isTrue();
+        assertThat(botOf(states.get(states.size() - 1), "b")).isFalse();
+        assertThat(chats).extracting(RoomChatMessage::text).contains("B 님이 다시 들어왔습니다");
+        assertThatThrownBy(() -> service.join(id, "c", "C", "tiger")).hasMessageContaining("already started");
+    }
+
+    @Test
+    void disconnectDuringRelayGameKeepsSeatAndRemovesRoomAfterGraceWhenNobodyReturns() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rat");
+        service.join(id, "b", "B", "ox");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.leave(id, "a");
+        var snap = service.find(id).orElseThrow();
+        assertThat(snap.players()).hasSize(2);
+        assertThat(snap.hostId()).isEqualTo("b");
+        assertThat(snap.players().get(0).connected()).isFalse();
+        service.finish(id, "b", 10);
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.FINISHED);
+        service.leave(id, "b");
+        assertThat(service.find(id)).isEmpty();
+    }
+
+    @Test
+    void roomAbandonedMidGameIsRemovedAfterGrace() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rat");
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.leave(id, "a");
+        assertThat(service.find(id)).isPresent();
+        scheduled.get(scheduled.size() - 1).run();
+        assertThat(service.find(id)).isEmpty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean botOf(RoomGameState state, String playerId) {
+        var players = (java.util.List<java.util.Map<String, Object>>) state.view().get("players");
+        return players.stream().filter(p -> playerId.equals(p.get("id"))).map(p -> (Boolean) p.get("bot")).findFirst().orElseThrow();
     }
 
     @Test

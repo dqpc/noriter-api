@@ -1,0 +1,4 @@
+CREATE TABLE siteVisit (
+    visitDay DATE   NOT NULL PRIMARY KEY,
+    count    BIGINT NOT NULL DEFAULT 0
+);

@@ -7,6 +7,7 @@ import games.noriter.api.room.web.dto.ChatMessage;
 import games.noriter.api.room.web.dto.ClientMessage;
 import games.noriter.api.room.web.dto.ServerMessage;
 import java.io.IOException;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -22,6 +23,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
     private final RoomService rooms;
     private final RoomSessions sessions;
     private final ObjectMapper json;
+    private static final Pattern PLAYER_TOKEN = Pattern.compile("[A-Za-z0-9_-]{16,64}");
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
@@ -31,25 +33,28 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
             return;
         }
         sessions.add(roomId, session);
-        sessions.send(session, new ServerMessage.Hello(session.getId()));
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         var roomId = roomId(session);
-        var playerId = session.getId();
+        var playerId = RoomSessions.playerId(session);
         try {
             switch (json.readValue(message.getPayload(), ClientMessage.class)) {
                 case ClientMessage.Join m -> {
+                    var id = m.playerId() != null && PLAYER_TOKEN.matcher(m.playerId()).matches() ? m.playerId() : session.getId();
+                    RoomSessions.bind(session, id);
+                    sessions.send(session, new ServerMessage.Hello(id));
                     sessions.send(session, new ServerMessage.ChatHistory(
                             rooms.chatHistory(roomId).stream().map(ChatMessage::from).toList()));
-                    rooms.join(roomId, playerId, m.nickname() == null ? "player" : m.nickname(), m.character());
+                    rooms.join(roomId, id, m.nickname() == null ? "player" : m.nickname(), m.character());
                 }
                 case ClientMessage.Chat m -> rooms.chat(roomId, playerId, m.text());
                 case ClientMessage.Character m -> rooms.setCharacter(roomId, playerId, m.character());
                 case ClientMessage.Ping m -> sessions.send(session, new ServerMessage.Pong());
                 case ClientMessage.Rematch m -> rooms.rematch(roomId, playerId);
                 case ClientMessage.State m -> rooms.relayState(roomId, playerId, m.state() == null ? java.util.Map.of() : m.state());
+                case ClientMessage.Action m -> rooms.action(roomId, playerId, m.action() == null ? java.util.Map.of() : m.action());
                 case ClientMessage.Settings m -> {
                     if (m.maxPlayers() != null) rooms.setMaxPlayers(roomId, playerId, m.maxPlayers());
                     if (m.options() != null) rooms.setOptions(roomId, playerId, m.options());
@@ -69,7 +74,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         var roomId = roomId(session);
         sessions.remove(roomId, session);
-        rooms.leave(roomId, session.getId());
+        if (!sessions.hasPlayer(roomId, RoomSessions.playerId(session))) rooms.leave(roomId, RoomSessions.playerId(session));
     }
 
     private static String roomId(WebSocketSession session) {

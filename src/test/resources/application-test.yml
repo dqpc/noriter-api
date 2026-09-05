@@ -4,3 +4,12 @@ spring:
     url: jdbc:h2:mem:noriter;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
     username: sa
     password:
+
+server:
+  port: 0
+
+noriter:
+  cors:
+    allowed-origins: http://localhost:5173
+  game:
+    dev-options: false

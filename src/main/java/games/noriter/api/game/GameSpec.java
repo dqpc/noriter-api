@@ -14,7 +14,9 @@ public record GameSpec(
         boolean seeded,
         boolean higherIsBetter,
         Map<String, List<Object>> optionChoices,
-        Map<String, Object> defaultOptions) {
+        Map<String, Object> defaultOptions,
+        boolean turnBased,
+        boolean uniqueCharacters) {
 
     public GameSpec {
         if (minPlayers < 1 || defaultMaxPlayers < minPlayers || maxPlayersLimit < defaultMaxPlayers) {
