@@ -33,12 +33,15 @@ docker compose up -d      # 로컬 PostgreSQL (Docker 있을 때)
 ./gradlew test
 ```
 
-| 환경변수 | 기본값 |
-|---|---|
-| DB_URL / DB_USER / DB_PASSWORD | localhost noriter / noriter / noriter |
-| CORS_ALLOWED_ORIGINS | http://localhost:5173 (쉼표 구분) |
-| PORT | 8080 |
-| NORITER_DEV_OPTIONS | false (true 면 dev 전용 옵션 추가) |
+프로파일로 환경을 나눈다. 지정하지 않으면 `local`.
+
+| 프로파일 | DB | 포트 | CORS | dev 옵션 |
+|---|---|---|---|---|
+| local (기본) | localhost/noriter | 8080 | localhost:5173 | on |
+| dev | 127.0.0.1/noriter_dev | 8081 | dev 사이트 + localhost | on |
+| prod | 127.0.0.1/noriter | 8080 | prod 사이트 | off |
+
+`SPRING_PROFILES_ACTIVE=dev` 처럼 고르고, 필요하면 `DB_URL` / `DB_USER` / `DB_PASSWORD` / `PORT` / `CORS_ALLOWED_ORIGINS` 환경변수로 덮어쓴다.
 
 ## API
 
