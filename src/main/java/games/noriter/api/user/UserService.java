@@ -6,17 +6,15 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
     private final AppUserRepository users;
-
-    UserService(AppUserRepository users) {
-        this.users = users;
-    }
 
     @Transactional
     public UserSummary findOrCreate(String provider, String providerId, String nickname) {

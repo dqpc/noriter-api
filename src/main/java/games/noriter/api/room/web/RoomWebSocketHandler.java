@@ -7,6 +7,7 @@ import games.noriter.api.room.web.dto.ChatMessage;
 import games.noriter.api.room.web.dto.ClientMessage;
 import games.noriter.api.room.web.dto.ServerMessage;
 import java.io.IOException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -15,17 +16,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@RequiredArgsConstructor
 class RoomWebSocketHandler extends TextWebSocketHandler {
 
     private final RoomService rooms;
     private final RoomSessions sessions;
     private final ObjectMapper json;
-
-    RoomWebSocketHandler(RoomService rooms, RoomSessions sessions, ObjectMapper json) {
-        this.rooms = rooms;
-        this.sessions = sessions;
-        this.json = json;
-    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
