@@ -33,8 +33,10 @@ class StairsSharedTests {
             now = now.plusMillis(150);
             s = game.apply(s, d == 'L' ? "a" : "b", Map.of("dir", String.valueOf(d)), now);
         }
-        var before = ((StairsShared.State) s).energyAt(now);
-        assertThat(before).isLessThan(100);
+        var st = (StairsShared.State) s;
+        now = now.plusMillis((long) (st.energy() * 0.6 / st.drainRate() * 1000));
+        var before = st.energyAt(now);
+        assertThat(before).isGreaterThan(0).isLessThan(60);
         char d = StairsShared.dirAt(seed, first);
         s = game.apply(s, d == 'L' ? "a" : "b", Map.of("dir", String.valueOf(d)), now);
         assertThat(((StairsShared.State) s).energy()).isEqualTo(100.0);
