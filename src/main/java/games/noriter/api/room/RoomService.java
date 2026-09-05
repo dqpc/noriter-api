@@ -83,6 +83,12 @@ public class RoomService {
         broadcasters.forEach(b -> b.chat(message));
     }
 
+    public RoomSnapshot setCharacter(String roomId, String playerId, String character) {
+        var room = rooms.require(roomId);
+        room.setCharacter(playerId, character);
+        return publish(room);
+    }
+
     public RoomSnapshot setMaxPlayers(String roomId, String playerId, int maxPlayers) {
         var room = rooms.require(roomId);
         room.setMaxPlayers(playerId, maxPlayers);

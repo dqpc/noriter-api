@@ -78,6 +78,10 @@ public class Room {
         if (status == RoomStatus.PLAYING && allFinished()) status = RoomStatus.FINISHED;
     }
 
+    public synchronized void setCharacter(String playerId, String character) {
+        requirePlayer(playerId).character = character;
+    }
+
     public synchronized void setMaxPlayers(String playerId, int value) {
         requireHost(playerId);
         if (status != RoomStatus.WAITING) throw new RoomException("game already started");
@@ -181,7 +185,7 @@ public class Room {
     private static final class Player {
         final String id;
         final String nickname;
-        final String character;
+        String character;
         long score;
         boolean finished;
 
