@@ -17,4 +17,7 @@ public interface TurnGame {
     TurnState auto(TurnState state, Instant now);
 
     TurnState leave(TurnState state, String playerId, Instant now);
+
+    /** 이탈했던 참가자가 돌아옴. 봇이 맡던 자리를 돌려준다. */
+    TurnState rejoin(TurnState state, String playerId, Instant now);
 }

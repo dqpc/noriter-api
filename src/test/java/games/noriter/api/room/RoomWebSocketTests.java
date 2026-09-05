@@ -70,18 +70,19 @@ class RoomWebSocketTests {
         assertThat(roomId).hasSize(8);
 
         var host = new Client(roomId);
+        host.send(Map.of("type", "join", "nickname", "goose", "character", "tiger", "playerId", "host-token-1234567890"));
         var hello = host.next();
         assertThat(hello.get("type").asText()).isEqualTo("hello");
         host.playerId = hello.get("playerId").asText();
-        host.send(Map.of("type", "join", "nickname", "goose", "character", "tiger"));
+        assertThat(host.playerId).isEqualTo("host-token-1234567890");
         var r1 = host.nextRoom();
         assertThat(r1.get("players")).hasSize(1);
         assertThat(r1.get("players").get(0).get("character").asText()).isEqualTo("tiger");
         assertThat(r1.get("hostId").asText()).isEqualTo(host.playerId);
 
         var guest = new Client(roomId);
-        guest.next();
         guest.send(Map.of("type", "join", "nickname", "duck"));
+        guest.next();
         assertThat(host.nextRoom().get("players")).hasSize(2);
         assertThat(guest.nextRoom().get("players")).hasSize(2);
 

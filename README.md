@@ -60,7 +60,7 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 
 | 방향 | type | 내용 |
 |---|---|---|
-| → | join | `{nickname, character}` 입장. 첫 입장자가 방장 |
+| → | join | `{nickname, character, playerId?}` 입장. 첫 입장자가 방장. `playerId` 는 브라우저가 보관하는 토큰(16~64자)으로, 같은 토큰으로 다시 join 하면 진행 중이던 자리로 복귀 |
 | → | settings | `{maxPlayers?, options?}` 방장만, 대기 중에만 |
 | → | character | `{character}` 내 캐릭터 변경 |
 | → | start | 방장. 3초 카운트다운 후 시작, seed 배포 |
@@ -70,14 +70,14 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | → | rematch | 방장, 종료 후. 점수 초기화하고 바로 카운트다운 |
 | → | ping | 30초마다. 프록시 유휴 종료 방지 |
 | → | action | 턴제 게임의 수. 윷놀이: `{type:"throw"}`, `{type:"move", pieceId, result, via?}` |
-| ← | hello | `{playerId}` |
-| ← | room | 방 스냅샷 (상태·참가자·설정·seed·시각). 변경마다 전원 |
+| ← | hello | `{playerId}` join 직후. 토큰을 보냈으면 그 값 |
+| ← | room | 방 스냅샷 (상태·참가자(`connected` 포함)·설정·seed·시각). 변경마다 전원 |
 | ← | playerState | `{playerId, state}` 다른 참가자의 게임 상태 |
 | ← | gameState | 턴제 게임의 판 전체(차례·단계·결과 큐·말 위치·가능한 수·순위). 서버 판정 결과 |
 | ← | chat / chatHistory | 채팅, 입장 시 최근 50개 |
 | ← | error / pong | |
 
-방 상태와 채팅은 메모리에만 있다. 방이 비면 사라진다.
+방 상태와 채팅은 메모리에만 있다. 대기·종료 중에 나가면 방에서 빠지고, 진행 중에 연결이 끊기면 자리를 남겨 둔다(턴제는 봇이 대신). 전원 끊긴 채 60초가 지나거나 방이 비면 사라진다.
 
 ## 구조
 

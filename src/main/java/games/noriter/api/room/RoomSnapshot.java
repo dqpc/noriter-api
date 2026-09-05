@@ -17,7 +17,7 @@ public record RoomSnapshot(
         Instant endAt,
         List<PlayerSnapshot> players) {
 
-    public record PlayerSnapshot(String id, String nickname, String character, long score, boolean finished, Integer rank) {}
+    public record PlayerSnapshot(String id, String nickname, String character, long score, boolean finished, Integer rank, boolean connected) {}
 
     public record GameInfo(
             String name,

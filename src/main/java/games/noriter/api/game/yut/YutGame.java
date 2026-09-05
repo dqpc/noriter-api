@@ -75,6 +75,14 @@ public class YutGame implements TurnGame {
         return s;
     }
 
+    @Override
+    public TurnState rejoin(TurnState raw, String playerId, Instant now) {
+        var s = (YutState) raw;
+        if (s.ended() || !s.bots.remove(playerId)) return s;
+        if (s.currentPlayer().equals(playerId)) resetDeadline(s, now);
+        return s;
+    }
+
     private void doThrow(YutState s, Instant now) {
         var sticks = new boolean[4];
         for (int i = 0; i < 4; i++) sticks[i] = s.rng.nextBoolean();
