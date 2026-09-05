@@ -8,7 +8,7 @@
 
 **모듈 경계는 Spring Modulith 가 지킨다.** `games.noriter.api` 아래 패키지 하나가 모듈이고(`game`, `user`, `score`, `room`), 모듈 루트의 서비스·읽기 모델만 다른 모듈이 참조할 수 있다. 하위 패키지(`domain`, `infra`, `web`)는 모듈 내부라서 잘못 참조하면 `ModularityTests` 가 실패한다. 모듈 간 부수효과는 `ApplicationEventPublisher` 이벤트로 넘기고, 이벤트 발행 기록은 Modulith 의 JDBC 레지스트리가 남긴다. 나중에 서버를 쪼갤 일이 생기면 이 경계를 그대로 잘라내는 것이 목표다.
 
-**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 게임 규칙 자체는 서버에 없고, 클라이언트가 보낸 점수와 상태를 중계만 한다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
+**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 실시간 경쟁 게임(2048·계단)은 규칙이 클라이언트에 있고 서버는 점수와 상태를 중계만 한다. 턴제 게임(윷놀이)은 `TurnGame` 구현체가 서버에서 난수·판정·봇을 맡고 클라이언트는 의도(`action`)만 보내므로 콘솔 조작으로 수를 만들 수 없다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
 
 **저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 camelCase(`PhysicalNamingStrategyStandardImpl`). 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드 조회, WebSocket, 헬스체크)와 인증 필요 경로를 메서드+경로 매처로 나누며, 로그인은 JWT 로 붙일 예정이다.
 
@@ -64,9 +64,11 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | → | chat | `{text}` 200자 |
 | → | rematch | 방장, 종료 후. 점수 초기화하고 바로 카운트다운 |
 | → | ping | 30초마다. 프록시 유휴 종료 방지 |
+| → | action | 턴제 게임의 수. 윷놀이: `{type:"throw"}`, `{type:"move", pieceId, result, via?}` |
 | ← | hello | `{playerId}` |
 | ← | room | 방 스냅샷 (상태·참가자·설정·seed·시각). 변경마다 전원 |
 | ← | playerState | `{playerId, state}` 다른 참가자의 게임 상태 |
+| ← | gameState | 턴제 게임의 판 전체(차례·단계·결과 큐·말 위치·가능한 수·순위). 서버 판정 결과 |
 | ← | chat / chatHistory | 채팅, 입장 시 최근 50개 |
 | ← | error / pong | |
 
@@ -78,10 +80,11 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 
 ```
 config/   보안, 스케줄러, 설정 프로퍼티
-game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션). 새 게임은 한 줄 추가
+game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·turnBased). TurnGame 인터페이스
+  yut/    윷놀이 규칙·봇 (29칸 경로, 지름길, 빽도, 잡기·업기, 턴 30초)
 user/     계정 (로그인 예정)
 score/    점수·리더보드
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
 ```
 
-모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 게임 규칙은 서버에 없다. 서버는 게임 종류를 모른 채 점수와 상태를 중계한다.
+모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 서버에 없고 점수와 상태를 중계만 한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
