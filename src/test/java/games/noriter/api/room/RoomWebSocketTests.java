@@ -109,6 +109,10 @@ class RoomWebSocketTests {
         host.send(Map.of("type", "score", "score", 512));
         assertThat(guest.nextRoom().get("players").get(0).get("score").asLong()).isEqualTo(512);
 
+        var coop = rest.post().uri("/api/rooms").body(Map.of("gameId", "stairs", "mode", "COOP")).retrieve().body(JsonNode.class);
+        assertThat(coop.get("mode").asText()).isEqualTo("COOP");
+        assertThat(coop.get("maxPlayers").asInt()).isEqualTo(2);
+
         var rest404 = rest.get().uri("/api/rooms/zzzzzzzz").exchange((req, res) -> res.getStatusCode().value());
         assertThat(rest404).isEqualTo(404);
 

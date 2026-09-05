@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ public class GameCatalog {
     private final Map<String, GameSpec> specs = new LinkedHashMap<>();
     private final Map<String, SharedGame> sharedGames;
 
+    @Autowired
     public GameCatalog(@Value("${noriter.game.dev-options:false}") boolean devOptions, List<SharedGame> sharedGames) {
         this(List.of(game2048(devOptions), stairs()), sharedGames);
     }
