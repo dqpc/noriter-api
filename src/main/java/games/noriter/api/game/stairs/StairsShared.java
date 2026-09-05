@@ -26,7 +26,10 @@ public class StairsShared implements SharedGame {
         }
     }
 
-    record State(long seed, Rules rules, Map<String, String> roles, int steps, double energy,
+    static final String TURN = "TURN";
+    static final String CLIMB = "CLIMB";
+
+    record State(long seed, Rules rules, Map<String, String> roles, int steps, char facing, double energy,
                  Instant energyAt, boolean started, boolean ended, boolean fell) implements SharedState {
 
         double drainRate() {
@@ -52,6 +55,7 @@ public class StairsShared implements SharedGame {
         public Map<String, Object> view() {
             var v = new LinkedHashMap<String, Object>();
             v.put("steps", steps);
+            v.put("facing", String.valueOf(facing));
             v.put("energy", energy);
             v.put("maxEnergy", rules.maxEnergy());
             v.put("drainPerSec", drainRate());
@@ -92,28 +96,29 @@ public class StairsShared implements SharedGame {
     public SharedState start(long seed, Map<String, Object> options, List<String> playerIds, Instant now) {
         if (playerIds.size() != players()) throw new IllegalArgumentException("stairs coop needs 2 players");
         var roles = new LinkedHashMap<String, String>();
-        roles.put(playerIds.get(0), "L");
-        roles.put(playerIds.get(1), "R");
+        roles.put(playerIds.get(0), TURN);
+        roles.put(playerIds.get(1), CLIMB);
         var rules = Rules.of(options.get("speed"));
-        return new State(seed, rules, roles, 0, rules.maxEnergy(), now, false, false, false);
+        return new State(seed, rules, roles, 0, dirAt(seed, 1), rules.maxEnergy(), now, false, false, false);
     }
 
     @Override
     public SharedState apply(SharedState raw, String playerId, Map<String, Object> input, Instant now) {
         var s = (State) raw;
         if (s.ended()) return s;
-        var dir = String.valueOf(input.get("dir"));
-        if (!dir.equals(s.roles().get(playerId))) return s;
+        var action = String.valueOf(input.get("action"));
+        if (!action.equals(s.roles().get(playerId))) return s;
         double energy = s.energyAt(now);
-        if (s.started() && energy <= 0) return new State(s.seed(), s.rules(), s.roles(), s.steps(), 0, now, true, true, false);
-        if (dirAt(s.seed(), s.steps() + 1) != dir.charAt(0)) {
-            return new State(s.seed(), s.rules(), s.roles(), s.steps(), energy, now, true, true, true);
+        if (s.started() && energy <= 0) return new State(s.seed(), s.rules(), s.roles(), s.steps(), s.facing(), 0, now, true, true, false);
+        char facing = action.equals(TURN) ? (s.facing() == 'L' ? 'R' : 'L') : s.facing();
+        if (dirAt(s.seed(), s.steps() + 1) != facing) {
+            return new State(s.seed(), s.rules(), s.roles(), s.steps(), facing, energy, now, true, true, true);
         }
         int next = s.steps() + 1;
         double gained = itemAt(s.seed(), next)
                 ? s.rules().maxEnergy()
                 : Math.min(s.rules().maxEnergy(), energy + s.rules().gainPerStep());
-        return new State(s.seed(), s.rules(), s.roles(), next, gained, now, true, false, false);
+        return new State(s.seed(), s.rules(), s.roles(), next, facing, gained, now, true, false, false);
     }
 
     @Override
@@ -121,7 +126,7 @@ public class StairsShared implements SharedGame {
         var s = (State) raw;
         if (s.ended() || !s.started()) return s;
         double energy = s.energyAt(now);
-        if (energy <= 0) return new State(s.seed(), s.rules(), s.roles(), s.steps(), 0, now, true, true, false);
-        return new State(s.seed(), s.rules(), s.roles(), s.steps(), energy, now, true, false, false);
+        if (energy <= 0) return new State(s.seed(), s.rules(), s.roles(), s.steps(), s.facing(), 0, now, true, true, false);
+        return new State(s.seed(), s.rules(), s.roles(), s.steps(), s.facing(), energy, now, true, false, false);
     }
 }

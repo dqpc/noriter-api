@@ -197,21 +197,18 @@ class RoomServiceTests {
         assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.PLAYING);
         assertThat(states).hasSize(1);
         @SuppressWarnings("unchecked") var roles = (java.util.Map<String, String>) states.get(0).view().get("roles");
-        assertThat(roles).containsEntry("a", "L").containsEntry("b", "R");
+        assertThat(roles).containsEntry("a", "TURN").containsEntry("b", "CLIMB");
         var pattern = (String) states.get(0).view().get("pattern");
 
-        char first = pattern.charAt(1);
-        String owner = first == 'L' ? "a" : "b";
-        String other = first == 'L' ? "b" : "a";
-        service.input(id, other, java.util.Map.of("dir", String.valueOf(first)));
+        service.input(id, "a", java.util.Map.of("action", "CLIMB"));
         assertThat((Integer) states.get(states.size() - 1).view().get("steps")).isEqualTo(0);
-        service.input(id, owner, java.util.Map.of("dir", String.valueOf(first)));
+        service.input(id, "b", java.util.Map.of("action", "CLIMB"));
         assertThat((Integer) states.get(states.size() - 1).view().get("steps")).isEqualTo(1);
         assertThat(scheduled.size()).isGreaterThanOrEqualTo(2);
 
-        char second = pattern.charAt(2);
-        String wrongOwner = second == 'L' ? "b" : "a";
-        service.input(id, wrongOwner, java.util.Map.of("dir", second == 'L' ? "R" : "L"));
+        String facing = (String) states.get(states.size() - 1).view().get("facing");
+        boolean needTurn = Character.toUpperCase(pattern.charAt(2)) != facing.charAt(0);
+        service.input(id, needTurn ? "b" : "a", java.util.Map.of("action", needTurn ? "CLIMB" : "TURN"));
         var done = service.find(id).orElseThrow();
         assertThat(done.status()).isEqualTo(RoomStatus.FINISHED);
         assertThat(done.players()).allMatch(p -> p.score() == 1 && p.rank() == 1);
