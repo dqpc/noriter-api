@@ -208,7 +208,8 @@ class RoomServiceTests {
         assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.FINISHED);
         assertThatThrownBy(() -> service.rematch(id, "b")).hasMessageContaining("host");
         var again = service.rematch(id, "a");
-        assertThat(again.status()).isEqualTo(RoomStatus.WAITING);
+        assertThat(again.status()).isEqualTo(RoomStatus.COUNTDOWN);
+        assertThat(again.seed()).isNotZero();
         assertThat(again.players()).allMatch(p -> p.score() == 0 && !p.finished() && p.rank() == null);
         assertThat(again.players()).hasSize(2);
         assertThatThrownBy(() -> service.rematch(id, "a")).hasMessageContaining("not finished");
