@@ -189,6 +189,7 @@ public class YutGame implements TurnGame {
         if (e.extraThrows > 0) { s.bonusThrows += e.extraThrows; e.extraThrows = 0; }
         var ev = new LinkedHashMap<String, Object>();
         ev.put("type", "throw");
+        ev.put("seq", ++s.throwSeq);
         ev.put("player", player);
         ev.put("result", result.name());
         ev.put("steps", steps);
