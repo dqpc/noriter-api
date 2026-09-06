@@ -107,7 +107,8 @@ public class WordService {
 
     private void requireOpen(int number) {
         int today = WordCalendar.numberOf(WordCalendar.today(clock));
-        if (number != today && number != today - 1) {
+        // 첫날에는 "어제"(0번)가 없다
+        if (number < 1 || (number != today && number != today - 1)) {
             throw new WordException(WordException.Kind.INVALID, "오늘이나 어제 문제만 풀 수 있습니다");
         }
     }

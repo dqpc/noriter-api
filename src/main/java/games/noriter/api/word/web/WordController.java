@@ -15,6 +15,8 @@ import games.noriter.api.word.web.dto.TodayResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
@@ -70,6 +72,12 @@ class WordController {
     @GetMapping("/answers/{number}")
     AnswerResponse answer(@PathVariable int number) {
         return AnswerResponse.from(words.pastAnswer(number));
+    }
+
+    /** 본문이 비었거나 JSON 이 깨졌거나 필수 값이 빠지면 400. 기본 처리(/error)는 인증에 막혀 401 로 보여 헷갈린다 */
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
+    ResponseEntity<ErrorResponse> onBadRequest(Exception e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("INVALID", "요청 형식이 잘못되었습니다"));
     }
 
     @ExceptionHandler(WordException.class)
