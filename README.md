@@ -53,6 +53,12 @@ REST
 | GET | /api/rooms/{id} | 방 조회 |
 | GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 |
 | POST | /api/games/{gameId}/plays | 혼자 하기 한 판 종료 `{score}`. 게스트는 이용 통계(`game_play`)에만, 로그인(Bearer)이면 점수 기록(`game_score`, 리더보드·프로필 최고 기록·갱신 알림)도 남는다 |
+| GET | /api/games/word/today | 오늘의 단어 문제 번호 `{number, date, tries:6, length:6, resetAt}`. 정답은 주지 않는다 |
+| POST | /api/games/word/guesses | `{number, jamo}` 자모 6개 추측 → `{statuses:[correct·present·absent ×6]}`. 사전에 없으면 422 `NOT_IN_DICTIONARY`, 오늘·어제 번호만 400 아님 |
+| POST | /api/games/word/results | `{number, attempts(1~6, 실패면 null), hard}` 한 판 종료 → `{answer:{jamo, word, meaning}, stats}`. 로그인(Bearer)이면 `word_result` 에 하루 한 번 기록(재제출 무시)하고 이용·점수 기록도 남는다(점수 = 7 − 시도). 게스트는 `stats` 가 null |
+| GET | /api/games/word/stats | 내 전적 `{played, won, winRate, currentStreak, maxStreak, distribution[6]}` (Bearer 필수, 401) |
+| GET | /api/games/word/dictionary/{jamo} | 사전에 있는 단어인지 `{valid}` (문제 만들기용) |
+| GET | /api/games/word/answers/{number} | 지난 문제의 정답. 오늘 이후 번호는 404 |
 | GET | /api/users?nickname= | 닉네임으로 계정 찾기 (대소문자 무시). 없으면 `[]` — 가입 가능 여부 확인 |
 | POST | /api/users | 가입 `{nickname, password, email?, characterId?}` → `{token, user}` (409 중복, 400 형식) |
 | POST | /api/sessions | 로그인 `{nickname, password}` → `{token, user}` (401) |
@@ -124,8 +130,11 @@ score/    점수·리더보드, 사용자별 게임 기록 (방 종료 이벤트
 realtime/ 개인 채널 /ws/me (접속 상태, 모듈 공용 푸시)
 notification/ 알림 (환영·결과·최고 기록·초대)
 dm/       1:1 쪽지 (conversation · conversation_member(읽음 커서) · message, 커서 페이징)
+word/     오늘의 단어 (꼬들형). 자모 6개 판정(WordJudge), KST 날짜 번호(WordCalendar, 2026-09-06 = 1번), 시작 시 TSV 시드(WordSeeder)
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
 visit/    방문자 수 (site_visit 일별 카운트, Asia/Seoul)
 ```
+
+오늘의 단어는 정답을 서버만 알고, 클라이언트는 추측 자모를 보내 자리별 판정만 받는다. 정답 순서표(`word_puzzle`, 779개)와 추측 사전(`word_dictionary`, 3만 1천 단어)은 `src/main/resources/word/*.tsv` 를 첫 기동 때 비어 있는 테이블에 넣는다(`noriter.word.seed=false` 로 끌 수 있음). 단어·뜻풀이는 국립국어원 표준국어대사전(공공누리 제1유형)에서, 정답 후보 선별에 쓴 단어 빈도는 FrequencyWords(OpenSubtitles, CC BY-SA)에서 가져왔다.
 
 모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 서버에 없고 점수와 상태를 중계만 한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
