@@ -34,8 +34,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // 프론트가 별도 origin 의 SPA. 세션 없이 Bearer JWT 만 쓴다.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/games/word/stats").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/games/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/games/*/plays").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/games/word/guesses", "/api/games/word/results").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/rooms").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/*").permitAll()
                         .requestMatchers("/api/visits").permitAll()

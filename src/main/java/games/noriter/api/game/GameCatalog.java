@@ -20,7 +20,7 @@ public class GameCatalog {
 
     public GameCatalog(NoriterProperties props, List<TurnGame> turnGames) {
         boolean devOptions = props.game() != null && props.game().devOptions();
-        List.of(game2048(devOptions), stairs(), yut()).forEach(s -> specs.put(s.id(), s));
+        List.of(game2048(devOptions), stairs(), yut(), word()).forEach(s -> specs.put(s.id(), s));
         this.turnGames = turnGames.stream().collect(Collectors.toMap(TurnGame::gameId, g -> g));
     }
 
@@ -42,6 +42,10 @@ public class GameCatalog {
     private static GameSpec yut() {
         return new GameSpec("yut", "윷놀이", 2, 4, 4, null, true, true,
                 Map.of("pieces", List.of(2, 3, 4), "cards", List.of(true, false)), Map.of("pieces", 3, "cards", true), true, true);
+    }
+
+    private static GameSpec word() {
+        return new GameSpec("word", "오늘의 단어", 1, 1, 1, null, false, true, Map.of(), Map.of(), false, false);
     }
 
     public Optional<GameSpec> find(String id) {

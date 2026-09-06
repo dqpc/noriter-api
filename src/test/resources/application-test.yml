@@ -15,3 +15,6 @@ noriter:
     allowed-origins: http://localhost:5173
   game:
     dev-options: false
+  word:
+    answers: classpath:word-test/answers.tsv
+    dictionary: classpath:word-test/dictionary.tsv
