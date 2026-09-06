@@ -45,7 +45,7 @@ public class GameCatalog {
     }
 
     private static GameSpec word() {
-        return new GameSpec("word", "오늘의 단어", 1, 1, 1, null, false, true, Map.of(), Map.of(), false, false);
+        return new GameSpec("word", "글딱지", 1, 1, 1, null, false, true, Map.of(), Map.of(), false, false);
     }
 
     public Optional<GameSpec> find(String id) {
