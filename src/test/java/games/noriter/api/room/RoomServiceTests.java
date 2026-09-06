@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import games.noriter.api.game.GameCatalog;
+import games.noriter.api.game2048.Board2048;
+import games.noriter.api.game2048.Game2048Replay;
 import games.noriter.api.room.infra.InMemoryRoomRepository;
+import java.util.Map;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -50,7 +53,7 @@ class RoomServiceTests {
             public void playerState(RoomPlayerState s) { relayed.add(s); }
             public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false), new games.noriter.api.config.NoriterProperties.Auth("x")), List.of(new games.noriter.api.game.yut.YutGame())), List.of(b),
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false), new games.noriter.api.config.NoriterProperties.Auth("x")), List.of(new games.noriter.api.game.yut.YutGame()), List.of(new Game2048Replay())), List.of(b),
                 scheduler, Clock.fixed(NOW, ZoneOffset.UTC), published::add);
     }
 
@@ -331,6 +334,71 @@ class RoomServiceTests {
         assertThat(results).extracting(RoomFinished.Result::userId).containsExactly(7L, null);
         assertThat(results).extracting(RoomFinished.Result::rank).containsExactly(2, 1);
         assertThat(finished.get(0).gameId()).isEqualTo("2048");
+    }
+
+    /** 방의 seed 로 실제 둘 수 있는 수를 골라 입력 로그를 만든다 */
+    static String legitMoves(long seed, int target, int steps) {
+        var board = new Board2048(seed, target);
+        var log = new StringBuilder();
+        for (int i = 0; i < steps && !board.ended(); i++) {
+            for (char code : "0123".toCharArray()) {
+                if (board.step(code)) {
+                    log.append(code);
+                    break;
+                }
+            }
+        }
+        return log.toString();
+    }
+
+    @Test
+    void finishWithMovesReplacesClientScoreByReplayedScore() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "ox", null);
+        var seed = service.start(id, "a").seed();
+        scheduled.get(0).run();
+        var moves = legitMoves(seed, 2048, 40);
+        var expected = new Game2048Replay().replay(seed, Map.of("target", 2048), moves).score();
+        assertThat(expected).isPositive().isLessThan(1_500);
+
+        // 개연성 검사는 통과하는 중간 점수를 미리 올려 두어도 재생 점수가 덮는다
+        service.score(id, "a", 1_500);
+        service.finish(id, "a", 999_999, moves);
+        service.finish(id, "b", expected, moves);
+        var room = service.find(id).orElseThrow();
+        assertThat(room.players()).extracting(RoomSnapshot.PlayerSnapshot::score).containsExactly(expected, expected);
+    }
+
+    @Test
+    void finishWithBrokenMovesKeepsScoreUpToLastValidMove() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        var seed = service.start(id, "a").seed();
+        scheduled.get(0).run();
+        var moves = legitMoves(seed, 2048, 30);
+        var half = moves.substring(0, 10);
+        var expected = new Game2048Replay().replay(seed, Map.of("target", 2048), half).score();
+
+        service.finish(id, "a", 500_000, half + "x" + moves.substring(10));
+        assertThat(service.find(id).orElseThrow().players().get(0).score()).isEqualTo(expected);
+    }
+
+    @Test
+    void finishWithoutMovesOrWithoutReplayerTrustsClient() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.finish(id, "a", 123);
+        assertThat(service.find(id).orElseThrow().players().get(0).score()).isEqualTo(123);
+
+        var stairs = service.create("stairs").id();
+        service.join(stairs, "a", "A", "rat", null);
+        service.start(stairs, "a");
+        scheduled.get(scheduled.size() - 1).run();
+        service.finish(stairs, "a", 77, "0000");
+        assertThat(service.find(stairs).orElseThrow().players().get(0).score()).isEqualTo(77);
     }
 
     @Test

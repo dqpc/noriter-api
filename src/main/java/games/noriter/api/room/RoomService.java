@@ -19,8 +19,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
-@Service
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class RoomService {
 
@@ -228,7 +228,16 @@ public class RoomService {
     }
 
     public RoomSnapshot finish(String roomId, String playerId, long score) {
+        return finish(roomId, playerId, score, null);
+    }
+
+    public RoomSnapshot finish(String roomId, String playerId, long score, String moves) {
         var room = rooms.require(roomId);
+        var replayed = replay(room, playerId, score, moves);
+        if (replayed.isPresent()) {
+            room.finishVerified(playerId, replayed.get());
+            return publish(room);
+        }
         var now = Instant.now(clock);
         var result = room.finish(playerId, score, now);
         var snapshot = publish(room);
@@ -242,6 +251,20 @@ public class RoomService {
     private void warnRejected(Room room, String playerId, long score, Instant now) {
         long elapsed = room.startAt() == null ? 0 : Duration.between(room.startAt(), now).toSeconds();
         log.warn("score rejected room={} game={} player={} score={} elapsedSec={}", room.id(), room.spec().id(), playerId, score, elapsed);
+    }
+
+    /** 입력 로그가 오면 서버가 같은 seed 로 재생한 점수를 쓴다. 로그가 없거나 재생할 수 없는 게임이면 개연성 검사로 */
+    private Optional<Long> replay(Room room, String playerId, long score, String moves) {
+        if (moves == null) return Optional.empty();
+        var replayer = games.replayer(room.spec().id());
+        if (replayer.isEmpty()) return Optional.empty();
+        var snapshot = room.snapshot();
+        var replay = replayer.get().replay(snapshot.seed(), snapshot.options(), moves);
+        if (replay.score() != score || !replay.complete()) {
+            log.warn("score replayed room={} game={} player={} client={} replayed={} moves={}/{}",
+                    room.id(), room.spec().id(), playerId, score, replay.score(), replay.applied(), moves.length());
+        }
+        return Optional.of(replay.score());
     }
 
     private RoomSnapshot publish(Room room) {

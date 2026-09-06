@@ -29,7 +29,8 @@ public sealed interface ClientMessage {
 
     record Score(long score) implements ClientMessage {}
 
-    record Finish(long score) implements ClientMessage {}
+    /** moves: seed 로 시작한 게임의 입력 로그. 서버가 재생해 점수를 검증한다. 없으면 점수를 그대로 믿는다 */
+    record Finish(long score, String moves) implements ClientMessage {}
 
     record Chat(String text) implements ClientMessage {}
 

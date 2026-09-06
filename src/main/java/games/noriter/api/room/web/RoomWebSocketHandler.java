@@ -67,7 +67,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
                 case ClientMessage.Start m -> rooms.start(roomId, playerId);
                 case ClientMessage.Host m -> rooms.transferHost(roomId, playerId, m.playerId() == null ? "" : m.playerId());
                 case ClientMessage.Score m -> rooms.score(roomId, playerId, m.score());
-                case ClientMessage.Finish m -> rooms.finish(roomId, playerId, m.score());
+                case ClientMessage.Finish m -> rooms.finish(roomId, playerId, m.score(), m.moves());
             }
         } catch (RoomException e) {
             sessions.send(session, new ServerMessage.Error(e.getMessage()));

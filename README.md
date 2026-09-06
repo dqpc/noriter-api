@@ -8,7 +8,7 @@
 
 **모듈 경계는 Spring Modulith 가 지킨다.** `games.noriter.api` 아래 패키지 하나가 모듈이고(`game`, `user`, `score`, `room`), 모듈 루트의 서비스·읽기 모델만 다른 모듈이 참조할 수 있다. 하위 패키지(`domain`, `infra`, `web`)는 모듈 내부라서 잘못 참조하면 `ModularityTests` 가 실패한다. 모듈 간 부수효과는 `ApplicationEventPublisher` 이벤트로 넘기고, 이벤트 발행 기록은 Modulith 의 JDBC 레지스트리가 남긴다. 나중에 서버를 쪼갤 일이 생기면 이 경계를 그대로 잘라내는 것이 목표다.
 
-**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 실시간 경쟁 게임(2048·계단)은 규칙이 클라이언트에 있고 서버는 점수와 상태를 중계만 한다. 턴제 게임(윷놀이)은 `TurnGame` 구현체가 서버에서 난수·판정·봇을 맡고 클라이언트는 의도(`action`)만 보내므로 콘솔 조작으로 수를 만들 수 없다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
+**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 실시간 경쟁 게임(2048·계단)은 규칙이 클라이언트에 있고 서버는 점수와 상태를 중계한다. 2048 은 종료 때 입력 로그를 받아 서버가 같은 seed 로 재생해 점수를 다시 계산한다(`ScoreReplayer`). 턴제 게임(윷놀이)은 `TurnGame` 구현체가 서버에서 난수·판정·봇을 맡고 클라이언트는 의도(`action`)만 보내므로 콘솔 조작으로 수를 만들 수 없다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
 
 **저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 PostgreSQL 관례대로 snake_case 소문자·단수형(`app_user.provider_id`)이고 Java 필드는 camelCase 그대로 Spring 기본 네이밍 전략이 변환한다. 제약·인덱스는 `pk_`/`uk_`/`fk_`/`ix_` 접두사. 삭제는 물리 삭제 대신 `deleted_at` 을 채우는 소프트 삭제(Hibernate `@SoftDelete`)다. 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드·프로필 조회, 가입·로그인, WebSocket, 헬스체크)와 인증 필요 경로(`/api/users/me/**`, 초대)를 메서드+경로 매처로 나눈다. 로그인은 닉네임+비밀번호(BCrypt)이고, 성공하면 HS256 JWT(30일)를 내려 프론트가 `Authorization: Bearer` 로 보낸다. WebSocket 은 `join` 메시지에 토큰을 실어 계정과 자리를 묶는다. 서명 비밀은 `AUTH_SECRET` 환경변수이며, GitHub 저장소 시크릿 `AUTH_SECRET_DEV` / `AUTH_SECRET_PROD` 를 배포 워크플로가 배포마다 서버의 env 파일에 써 넣는다. 서버를 다시 설치해도 시크릿만 그대로면 기존 로그인이 유지된다.
 
@@ -123,8 +123,9 @@ WebSocket `/ws/me?token=JWT` — 로그인한 브라우저의 개인 채널
 
 ```
 config/   보안, 스케줄러, 설정 프로퍼티
-game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·turnBased). TurnGame 인터페이스
+game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·turnBased). TurnGame·ScoreReplayer 인터페이스
   yut/    윷놀이 규칙·봇 (29칸 경로, 지름길, 빽도, 잡기·업기, 턴 30초), 천사·악마 카드(잡기·방 도착·시작 때 천사 4 + 악마 1 더미에서 한 장, 15초), 항복
+game2048/ 2048 재생 검증. 웹 logic.ts 의 Java 포팅(Board2048·Mulberry32), 방의 seed 로 입력 로그를 돌려 점수 재계산
 user/     계정(닉네임+비밀번호, JWT), 친구(일방향), 접속 상태(하트비트, 메모리)
 score/    점수·리더보드, 사용자별 게임 기록 (방 종료 이벤트로 기록)
 realtime/ 개인 채널 /ws/me (접속 상태, 모듈 공용 푸시)
@@ -137,4 +138,4 @@ visit/    방문자 수 (site_visit 일별 카운트 + site_visitor 일별 방�
 
 글딱지는 정답을 서버만 알고, 클라이언트는 추측 자모를 보내 자리별 판정만 받는다. 정답 순서표(`word_puzzle`, 779개)와 추측 사전(`word_dictionary`, 3만 1천 단어)은 `src/main/resources/word/*.tsv` 를 첫 기동 때 비어 있는 테이블에 넣는다(`noriter.word.seed=false` 로 끌 수 있음). 단어·뜻풀이는 국립국어원 표준국어대사전(공공누리 제1유형)에서, 정답 후보 선별에 쓴 단어 빈도는 FrequencyWords(OpenSubtitles, CC BY-SA)에서 가져왔다.
 
-모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 서버에 없고 점수와 상태를 중계만 한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
+모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 클라이언트에 있고 서버는 점수와 상태를 중계한다. 다만 2048 은 방에서 끝날 때 입력 로그(`finish.moves`)를 함께 받아 `ScoreReplayer`(`game2048`)가 같은 seed 로 재생한 점수를 채택하므로 콘솔에서 점수만 바꿔 보내도 소용없다. 계단은 프레임 타이밍에 결과가 달려 재생하지 않는다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.

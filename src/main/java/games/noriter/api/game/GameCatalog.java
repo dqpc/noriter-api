@@ -17,15 +17,21 @@ public class GameCatalog {
 
     private final Map<String, GameSpec> specs = new LinkedHashMap<>();
     private final Map<String, TurnGame> turnGames;
+    private final Map<String, ScoreReplayer> replayers;
 
-    public GameCatalog(NoriterProperties props, List<TurnGame> turnGames) {
+    public GameCatalog(NoriterProperties props, List<TurnGame> turnGames, List<ScoreReplayer> replayers) {
         boolean devOptions = props.game() != null && props.game().devOptions();
         List.of(game2048(devOptions), stairs(), yut(), word()).forEach(s -> specs.put(s.id(), s));
         this.turnGames = turnGames.stream().collect(Collectors.toMap(TurnGame::gameId, g -> g));
+        this.replayers = replayers.stream().collect(Collectors.toMap(ScoreReplayer::gameId, r -> r));
     }
 
     public Optional<TurnGame> turnGame(String id) {
         return Optional.ofNullable(turnGames.get(id));
+    }
+
+    public Optional<ScoreReplayer> replayer(String id) {
+        return Optional.ofNullable(replayers.get(id));
     }
 
     private static GameSpec game2048(boolean devOptions) {
