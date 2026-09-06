@@ -21,13 +21,21 @@ jobs:
       - name: test + bootJar
         run: ./gradlew test bootJar --no-daemon -q
       - name: deploy ($TARGET)
+        env:
+          AUTH_SECRET: ${{ github.ref_name == 'main' && secrets.AUTH_SECRET_PROD || secrets.AUTH_SECRET_DEV }}
         run: |
           set -e
           cp build/libs/noriter-api-*.jar "/opt/noriter/api-$TARGET/app.jar.new"
           mv "/opt/noriter/api-$TARGET/app.jar.new" "/opt/noriter/api-$TARGET/app.jar"
-          # JWT 서명 비밀: 인스턴스마다 한 번 생성해 env 파일에 두고 systemd drop-in 으로 읽힌다
+          # JWT 서명 비밀: GitHub secret(AUTH_SECRET_DEV / AUTH_SECRET_PROD) 을 배포마다 env 파일에 쓴다.
+          # secret 이 비어 있으면 기존 파일을 유지하고, 그것도 없을 때만 새로 만든다 (그러면 기존 로그인은 풀린다)
           ENV_FILE="/opt/noriter/api-$TARGET/env"
-          if [ ! -f "$ENV_FILE" ]; then (umask 077; printf 'AUTH_SECRET=%s\n' "$(openssl rand -base64 48 | tr -d '\n')" > "$ENV_FILE"); fi
+          if [ -n "$AUTH_SECRET" ]; then
+            (umask 077; printf 'AUTH_SECRET=%s\n' "$AUTH_SECRET" > "$ENV_FILE.new"); mv "$ENV_FILE.new" "$ENV_FILE"
+          elif [ ! -f "$ENV_FILE" ]; then
+            echo "::warning::AUTH_SECRET secret not set; generating a local one"
+            (umask 077; printf 'AUTH_SECRET=%s\n' "$(openssl rand -base64 48 | tr -d '\n')" > "$ENV_FILE")
+          fi
           DROPIN="/etc/systemd/system/noriter-api-$TARGET.service.d/10-env.conf"
           if [ ! -f "$DROPIN" ]; then
             sudo mkdir -p "$(dirname "$DROPIN")"
