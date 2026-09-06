@@ -241,6 +241,15 @@ public class Room {
         return result;
     }
 
+    /** 서버가 입력 로그를 재생해 확정한 점수. 개연성 검사 없이 그대로 쓰고, 중간에 올린 점수보다 낮아도 덮는다 */
+    public synchronized void finishVerified(String playerId, long score) {
+        if (status != RoomStatus.PLAYING) throw new RoomException("game is not running");
+        var p = requirePlayer(playerId);
+        p.score = score;
+        p.finished = true;
+        if (allFinished()) status = RoomStatus.FINISHED;
+    }
+
     private ScoreResult check(Player p, long score, Instant now) {
         if (spec.higherIsBetter() && score <= p.score) return ScoreResult.IGNORED;
         var limits = spec.scoreLimits();
