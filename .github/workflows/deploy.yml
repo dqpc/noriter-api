@@ -8,23 +8,61 @@ concurrency:
   group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
+env:
+  TARGET: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+  PORT: ${{ github.ref_name == 'main' && '8080' || '8081' }}
+
 jobs:
-  deploy:
-    runs-on: [self-hosted, home]
-    env:
-      TARGET: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
-      PORT: ${{ github.ref_name == 'main' && '8080' || '8081' }}
+  # 테스트·빌드는 GitHub 호스트 러너에서. 서버컴에서 돌리면 배포마다 CPU 가 꽉 차고 팬이 돈다
+  build:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: java
-        run: java -version
-      - name: test + bootJar
-        run: ./gradlew test bootJar --no-daemon -q
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: gradle
+      - run: ./gradlew test bootJar --no-daemon -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jar
+          path: build/libs/noriter-api-*.jar
+          retention-days: 3
+          if-no-files-found: error
+
+  # 서버컴은 jar 를 받아 교체·재시작만 한다
+  deploy:
+    needs: build
+    runs-on: [self-hosted, home]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: jar
+          path: build/libs
       - name: deploy ($TARGET)
+        env:
+          AUTH_SECRET: ${{ github.ref_name == 'main' && secrets.AUTH_SECRET_PROD || secrets.AUTH_SECRET_DEV }}
         run: |
           set -e
           cp build/libs/noriter-api-*.jar "/opt/noriter/api-$TARGET/app.jar.new"
           mv "/opt/noriter/api-$TARGET/app.jar.new" "/opt/noriter/api-$TARGET/app.jar"
+          # JWT 서명 비밀: GitHub secret(AUTH_SECRET_DEV / AUTH_SECRET_PROD) 을 배포마다 env 파일에 쓴다.
+          # secret 이 비어 있으면 기존 파일을 유지하고, 그것도 없을 때만 새로 만든다 (그러면 기존 로그인은 풀린다)
+          ENV_FILE="/opt/noriter/api-$TARGET/env"
+          if [ -n "$AUTH_SECRET" ]; then
+            (umask 077; printf 'AUTH_SECRET=%s\n' "$AUTH_SECRET" > "$ENV_FILE.new"); mv "$ENV_FILE.new" "$ENV_FILE"
+          elif [ ! -f "$ENV_FILE" ]; then
+            echo "::warning::AUTH_SECRET secret not set; generating a local one"
+            (umask 077; printf 'AUTH_SECRET=%s\n' "$(openssl rand -base64 48 | tr -d '\n')" > "$ENV_FILE")
+          fi
+          DROPIN="/etc/systemd/system/noriter-api-$TARGET.service.d/10-env.conf"
+          if [ ! -f "$DROPIN" ]; then
+            sudo mkdir -p "$(dirname "$DROPIN")"
+            printf '[Service]\nEnvironmentFile=%s\n' "$ENV_FILE" | sudo tee "$DROPIN" >/dev/null
+            sudo systemctl daemon-reload
+          fi
+          sudo systemctl reset-failed "noriter-api-$TARGET" || true
           sudo systemctl restart "noriter-api-$TARGET"
           for i in $(seq 1 90); do curl -sf "http://127.0.0.1:$PORT/actuator/health" >/dev/null && break; sleep 2; done
           curl -sf "http://127.0.0.1:$PORT/actuator/health"

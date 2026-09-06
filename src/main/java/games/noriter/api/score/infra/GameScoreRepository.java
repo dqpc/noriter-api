@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GameScoreRepository extends JpaRepository<GameScore, Long> {
     List<GameScore> findByGameIdOrderByScoreDescCreatedAtAsc(String gameId, Pageable pageable);
+    List<GameScore> findByUserIdOrderByCreatedAtAsc(Long userId);
+    List<GameScore> findByUserIdAndGameId(Long userId, String gameId);
 }

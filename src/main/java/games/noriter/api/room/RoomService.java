@@ -14,9 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomService {
@@ -31,6 +34,7 @@ public class RoomService {
     private final List<RoomBroadcaster> broadcasters;
     private final TaskScheduler scheduler;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
     private final SecureRandom random = new SecureRandom();
 
     public RoomSnapshot create(String gameId) {
@@ -43,9 +47,9 @@ public class RoomService {
         return rooms.find(roomId).map(Room::snapshot);
     }
 
-    public RoomSnapshot join(String roomId, String playerId, String nickname, String character) {
+    public RoomSnapshot join(String roomId, String playerId, String nickname, String character, Long userId) {
         var room = rooms.require(roomId);
-        var joined = room.join(playerId, nickname, character);
+        var joined = room.join(playerId, nickname, character, userId);
         var name = room.nicknameOf(playerId);
         switch (joined) {
             case NEW -> system(room, name + " 님이 들어왔습니다");
@@ -164,6 +168,13 @@ public class RoomService {
         return publish(room);
     }
 
+    public RoomSnapshot transferHost(String roomId, String playerId, String targetId) {
+        var room = rooms.require(roomId);
+        room.transferHost(playerId, targetId);
+        system(room, room.nicknameOf(targetId) + " 님이 방장이 되었습니다");
+        return publish(room);
+    }
+
     public RoomSnapshot setMaxPlayers(String roomId, String playerId, int maxPlayers) {
         var room = rooms.require(roomId);
         room.setMaxPlayers(playerId, maxPlayers);
@@ -207,20 +218,76 @@ public class RoomService {
 
     public RoomSnapshot score(String roomId, String playerId, long score) {
         var room = rooms.require(roomId);
-        room.score(playerId, score);
+        var now = Instant.now(clock);
+        var result = room.score(playerId, score, now);
+        if (result == Room.ScoreResult.REJECTED) {
+            warnRejected(room, playerId, score, now);
+            throw new RoomException("score rejected");
+        }
         return publish(room);
     }
 
     public RoomSnapshot finish(String roomId, String playerId, long score) {
+        return finish(roomId, playerId, score, null);
+    }
+
+    public RoomSnapshot finish(String roomId, String playerId, long score, String moves) {
         var room = rooms.require(roomId);
-        room.finish(playerId, score);
-        return publish(room);
+        var replayed = replay(room, playerId, score, moves);
+        if (replayed.isPresent()) {
+            room.finishVerified(playerId, replayed.get());
+            return publish(room);
+        }
+        var now = Instant.now(clock);
+        var result = room.finish(playerId, score, now);
+        var snapshot = publish(room);
+        if (result == Room.ScoreResult.REJECTED) {
+            warnRejected(room, playerId, score, now);
+            throw new RoomException("final score rejected, last accepted score kept");
+        }
+        return snapshot;
+    }
+
+    private void warnRejected(Room room, String playerId, long score, Instant now) {
+        long elapsed = room.startAt() == null ? 0 : Duration.between(room.startAt(), now).toSeconds();
+        log.warn("score rejected room={} game={} player={} score={} elapsedSec={}", room.id(), room.spec().id(), playerId, score, elapsed);
+    }
+
+    /** 입력 로그가 오면 서버가 같은 seed 로 재생한 점수를 쓴다. 로그가 없거나 재생할 수 없는 게임이면 개연성 검사로 */
+    private Optional<Long> replay(Room room, String playerId, long score, String moves) {
+        if (moves == null) return Optional.empty();
+        var replayer = games.replayer(room.spec().id());
+        if (replayer.isEmpty()) return Optional.empty();
+        var snapshot = room.snapshot();
+        var replay = replayer.get().replay(snapshot.seed(), snapshot.options(), moves);
+        if (replay.score() != score || !replay.complete()) {
+            log.warn("score replayed room={} game={} player={} client={} replayed={} moves={}/{}",
+                    room.id(), room.spec().id(), playerId, score, replay.score(), replay.applied(), moves.length());
+        }
+        return Optional.of(replay.score());
     }
 
     private RoomSnapshot publish(Room room) {
         var snapshot = room.snapshot();
         broadcasters.forEach(b -> b.broadcast(snapshot));
+        if (snapshot.status() == RoomStatus.FINISHED && room.markResultReported()) {
+            var spec = room.spec();
+            events.publishEvent(new RoomFinished(room.id(), spec.id(), spec.name(), spec.turnBased(), spec.higherIsBetter(),
+                    snapshot.players().stream()
+                            .map(p -> new RoomFinished.Result(p.id(), p.userId(), p.nickname(), p.score(), p.rank()))
+                            .toList()));
+        }
         return snapshot;
+    }
+
+    /** 방 안의 로그인 사용자가 다른 사용자를 초대. 대기 중인 방만. 상대 접속 여부는 호출자가 확인한다. */
+    public void invite(String roomId, Long fromUserId, String fromNickname, Long toUserId) {
+        var room = rooms.require(roomId);
+        if (room.status() != RoomStatus.WAITING) throw new RoomException("game already started");
+        if (room.playerIdOfUser(fromUserId) == null) throw new RoomException("not in room");
+        if (room.playerIdOfUser(toUserId) != null) throw new RoomException("already in room");
+        var spec = room.spec();
+        events.publishEvent(new RoomInvited(room.id(), spec.id(), spec.name(), fromUserId, fromNickname, toUserId));
     }
 
     private String newId() {

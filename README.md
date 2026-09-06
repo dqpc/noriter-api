@@ -8,13 +8,13 @@
 
 **모듈 경계는 Spring Modulith 가 지킨다.** `games.noriter.api` 아래 패키지 하나가 모듈이고(`game`, `user`, `score`, `room`), 모듈 루트의 서비스·읽기 모델만 다른 모듈이 참조할 수 있다. 하위 패키지(`domain`, `infra`, `web`)는 모듈 내부라서 잘못 참조하면 `ModularityTests` 가 실패한다. 모듈 간 부수효과는 `ApplicationEventPublisher` 이벤트로 넘기고, 이벤트 발행 기록은 Modulith 의 JDBC 레지스트리가 남긴다. 나중에 서버를 쪼갤 일이 생기면 이 경계를 그대로 잘라내는 것이 목표다.
 
-**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 실시간 경쟁 게임(2048·계단)은 규칙이 클라이언트에 있고 서버는 점수와 상태를 중계만 한다. 턴제 게임(윷놀이)은 `TurnGame` 구현체가 서버에서 난수·판정·봇을 맡고 클라이언트는 의도(`action`)만 보내므로 콘솔 조작으로 수를 만들 수 없다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
+**게임 확장은 데이터로 한다.** `GameSpec`(인원 범위, 제한 시간, seed 사용 여부, 점수 방향, 옵션 선택지)을 `GameCatalog` 에 한 줄 등록하면 방·대전·순위가 그 선언만 보고 동작한다. 실시간 경쟁 게임(2048·계단)은 규칙이 클라이언트에 있고 서버는 점수와 상태를 중계한다. 2048 은 종료 때 입력 로그를 받아 서버가 같은 seed 로 재생해 점수를 다시 계산한다(`ScoreReplayer`). 턴제 게임(윷놀이)은 `TurnGame` 구현체가 서버에서 난수·판정·봇을 맡고 클라이언트는 의도(`action`)만 보내므로 콘솔 조작으로 수를 만들 수 없다. 방 상태와 채팅은 메모리(`InMemoryRoomRepository`)에만 있어 재시작하면 사라진다. 제한 시간 종료와 카운트다운은 `TaskScheduler` 로 예약한다.
 
-**저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 PostgreSQL 관례대로 snake_case 소문자·단수형(`app_user.provider_id`)이고 Java 필드는 camelCase 그대로 Spring 기본 네이밍 전략이 변환한다. 제약·인덱스는 `pk_`/`uk_`/`fk_`/`ix_` 접두사. 삭제는 물리 삭제 대신 `deleted_at` 을 채우는 소프트 삭제(Hibernate `@SoftDelete`)다. 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드 조회, WebSocket, 헬스체크)와 인증 필요 경로를 메서드+경로 매처로 나누며, 로그인은 JWT 로 붙일 예정이다.
+**저장소는 PostgreSQL 18 이고 스키마는 Flyway 가 관리한다.** JPA 는 `ddl-auto: validate` 로만 쓰고 변경은 항상 마이그레이션 파일로 한다. 테이블·컬럼은 PostgreSQL 관례대로 snake_case 소문자·단수형(`app_user.provider_id`)이고 Java 필드는 camelCase 그대로 Spring 기본 네이밍 전략이 변환한다. 제약·인덱스는 `pk_`/`uk_`/`fk_`/`ix_` 접두사. 삭제는 물리 삭제 대신 `deleted_at` 을 채우는 소프트 삭제(Hibernate `@SoftDelete`)다. 테스트는 H2 를 PostgreSQL 모드로 띄워 외부 DB 없이 돌고, 그래서 마이그레이션 SQL 은 두 DB 에서 다 도는 문법만 쓴다. Spring Security 는 공개 경로(방·리더보드·프로필 조회, 가입·로그인, WebSocket, 헬스체크)와 인증 필요 경로(`/api/users/me/**`, 초대)를 메서드+경로 매처로 나눈다. 로그인은 닉네임+비밀번호(BCrypt)이고, 성공하면 HS256 JWT(30일)를 내려 프론트가 `Authorization: Bearer` 로 보낸다. WebSocket 은 `join` 메시지에 토큰을 실어 계정과 자리를 묶는다. 서명 비밀은 `AUTH_SECRET` 환경변수이며, GitHub 저장소 시크릿 `AUTH_SECRET_DEV` / `AUTH_SECRET_PROD` 를 배포 워크플로가 배포마다 서버의 env 파일에 써 넣는다. 서버를 다시 설치해도 시크릿만 그대로면 기존 로그인이 유지된다.
 
 **의존성 주입은 Lombok `@RequiredArgsConstructor`** 로 하고 설정값은 `@ConfigurationProperties` record(`NoriterProperties`)로 받는다. 빌드는 Gradle(Kotlin DSL), 테스트는 JUnit 5 + AssertJ 이며 WebSocket 은 실제 서버를 띄워 클라이언트 두 개로 검증한다.
 
-**배포는 집 서버컴에서 self-hosted runner 가 한다.** GitHub Actions 가 서버컴(Ubuntu Server)에서 테스트·bootJar 후 systemd 서비스를 재시작하고, dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
+**빌드는 GitHub 호스트 러너, 배포는 집 서버컴의 self-hosted runner 가 한다.** GitHub Actions 가 GitHub 쪽에서 테스트·bootJar 를 돌려 jar 를 아티팩트로 올리고, 서버컴(Ubuntu Server)의 러너는 그 jar 를 받아 교체하고 systemd 서비스를 재시작만 한다(서버컴 CPU 를 빌드에 쓰지 않으려고). dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
 
 ## 주소
 
@@ -23,7 +23,7 @@
 | prod | main | https://noriter-api.asgd56.workers.dev |
 | dev | develop | https://noriter-api-dev.asgd56.workers.dev |
 
-집 서버컴에서 두 인스턴스가 돌고, GitHub Actions self-hosted runner 가 브랜치 push 마다 재배포한다. 외부 공개는 Cloudflare Worker 프록시 + Quick Tunnel (도메인 구매 전 임시).
+집 서버컴에서 두 인스턴스가 돌고, 브랜치 push 마다 GitHub 호스트 러너가 빌드한 jar 를 서버컴의 self-hosted runner 가 받아 재배포한다. 외부 공개는 Cloudflare Worker 프록시 + Quick Tunnel (도메인 구매 전 임시).
 
 ## 실행
 
@@ -51,8 +51,32 @@ REST
 |---|---|---|
 | POST | /api/rooms | 방 생성 `{gameId}` → 방 스냅샷 (id 가 초대 코드) |
 | GET | /api/rooms/{id} | 방 조회 |
-| GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 (점수 제출 API 는 로그인 후) |
-| POST | /api/visits | 방문 1건 기록 → `{today, total}` (프론트가 브라우저·일 단위로 한 번) |
+| GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 |
+| POST | /api/games/{gameId}/plays | 혼자 하기 시작 → 201 `{playId, seed}`. 서버가 seed 를 정하고 세션 행(`game_play`, score null)을 먼저 남긴다. 게스트도 쓴다. 턴제 게임은 400 |
+| POST | /api/games/{gameId}/plays/{playId}/finish | 혼자 하기 종료 `{score, moves?}` → `{score, adjusted}`. 서버가 점수를 확정한다: 2048 은 `moves` 를 seed 로 재생해 다시 계산, 계단은 경과 시간 대비 상한(`GameSpec.scoreLimits`)으로 깎는다. 확정 점수가 보낸 값과 다르면 `adjusted`. 로그인(Bearer)이면 점수 기록(`game_score`, 리더보드·프로필 최고 기록·갱신 알림)도 남는다. 남의 판·없는 playId 404, 두 번 종료 409 |
+| GET | /api/games/word/today | 글딱지 문제 번호 `{number, date, tries:6, length:6, resetAt, guesses}`. 정답은 주지 않는다. 로그인이면 `guesses` 에 오늘 보낸 추측 `[{jamo, statuses}]`(새로고침 복원용), 게스트는 null |
+| POST | /api/games/word/guesses | `{number, jamo}` 자모 6개 추측 → `{statuses:[correct·present·absent ×6], seq}`. 사전에 없으면 422 `NOT_IN_DICTIONARY`, 오늘·어제 번호만 400 아님. 로그인(Bearer)이면 추측을 `word_guess` 에 저장하고 `seq`(몇 번째인지)를 준다. 여섯 번을 다 썼거나 이미 맞혔거나 끝난 문제면 400 `INVALID` |
+| POST | /api/games/word/results | `{number, attempts(1~6, 실패면 null), hard}` 한 판 종료 → `{answer:{jamo, word, meaning}, stats}`. 로그인이면 `attempts` 는 무시하고 저장된 추측으로 시도 횟수를 계산해(맞힌 추측의 seq, 여섯 번 다 틀리면 실패) `word_result` 에 하루 한 번 기록(재제출 무시)하고 이용·점수 기록도 남긴다(점수 = 7 − 시도). 아직 안 끝난 판이면 400. 게스트는 `stats` 가 null |
+| GET | /api/games/word/stats | 내 전적 `{played, won, winRate, currentStreak, maxStreak, distribution[6]}` (Bearer 필수, 401) |
+| GET | /api/games/word/dictionary/{jamo} | 사전에 있는 단어인지 `{valid}` (문제 만들기용) |
+| GET | /api/games/word/answers/{number} | 지난 문제의 정답. 오늘 이후 번호는 404 |
+| GET | /api/users?nickname= | 닉네임으로 계정 찾기 (대소문자 무시). 없으면 `[]` — 가입 가능 여부 확인 |
+| POST | /api/users | 가입 `{nickname, password, email?, characterId?}` → `{token, user}` (409 중복, 400 형식) |
+| POST | /api/sessions | 로그인 `{nickname, password}` → `{token, user}` (401) |
+| GET / PATCH | /api/users/me | 내 정보(마지막 접속 `lastSeenAt` 포함) / `{presence?, characterId?}` 변경. presence: ONLINE·AWAY·BUSY·INVISIBLE |
+| PUT / DELETE | /api/users/me/presence | 접속 하트비트 REST 판 (웹은 아래 `/ws/me` 를 쓴다) / 오프라인 |
+| GET | /api/users/me/friends | 친구 목록 (닉네임·캐릭터·접속 상태) |
+| PUT / DELETE | /api/users/me/friends/{userId} | 친구 추가 / 삭제. 일방향(팔로우)이라 상대에게 알리지 않는다 |
+| GET / PATCH | /api/users/me/notifications | 알림 50개 + 읽지 않은 수 / `{read:true}` 전부 읽음. `PATCH /{id}` 는 하나만 |
+| GET | /api/users/{id} | 공개 프로필 (닉네임·캐릭터·가입일·접속 상태·내 친구 여부) |
+| GET | /api/users/{id}/scores | 게임별 기록: 판 수, 최고 점수(점수 게임), 1등 횟수(턴제) |
+| GET | /api/conversations | 내 쪽지 대화 목록 (상대·마지막 메시지·안 읽은 수, 최근순) |
+| POST | /api/conversations | `{userId}` 상대와의 1:1 대화 열기(있으면 그것). 둘 중 한쪽이라도 친구로 추가한 사이만(403), 게스트 불가 |
+| GET | /api/conversations/{id}/messages?before= | 메시지 최신순 50개. `before` 는 커서(그보다 작은 id) |
+| POST | /api/conversations/{id}/messages | `{text}` 500자. 저장 뒤 양쪽 개인 채널로 `dm` 푸시 |
+| PATCH | /api/conversations/{id}/read | `{lastReadMessageId}` 읽음 커서 |
+| POST | /api/rooms/{id}/invitations | `{userId}` 방 안의 로그인 사용자가 친구를 초대 → 상대 알림. 상대가 온라인·자리 비움일 때만(바쁨·오프라인 409) |
+| POST | /api/visits | 방문 1건 기록 → `{today, total}`. 같은 방문자(IP+브라우저 해시)는 하루 한 번만 센다 |
 | GET | /api/visits | 방문 통계 |
 | GET | /actuator/health | 헬스체크 |
 
@@ -60,11 +84,12 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 
 | 방향 | type | 내용 |
 |---|---|---|
-| → | join | `{nickname, character, playerId?}` 입장. 첫 입장자가 방장. `playerId` 는 브라우저가 보관하는 토큰(16~64자)으로, 같은 토큰으로 다시 join 하면 진행 중이던 자리로 복귀 |
+| → | join | `{nickname, character, playerId?, token?}` 입장. 첫 입장자가 방장. `playerId` 는 브라우저가 보관하는 토큰(16~64자)으로, 같은 토큰으로 다시 join 하면 진행 중이던 자리로 복귀. `token`(JWT) 을 보내면 계정의 닉네임·캐릭터를 쓰고 참가자에 `userId` 가 붙는다 |
 | → | settings | `{maxPlayers?, options?}` 방장만, 대기 중에만 |
 | → | character | `{character}` 내 캐릭터 변경 |
 | → | start | 방장. 3초 카운트다운 후 시작, seed 배포 |
-| → | score / finish | `{score}` 점수 갱신 / 종료 |
+| → | host | `{playerId}` 방장 넘기기. 방장만, 대기·종료 중에, 접속 중인 참가자에게. 방장이 나가면 자동으로 다음 접속자에게 넘어간다 |
+| → | score / finish | `{score}` 점수 갱신 / 종료. 규칙이 브라우저에 있는 게임(2048·계단)은 `GameSpec.scoreLimits` 로 개연성을 본다: 경과 시간 대비 상한(초당 한도 × (경과 + 여유 2초)), 절대 상한, 직전 수락값 대비 증가폭, 초당 메시지 20개. 걸리면 마지막 정상값을 유지하고 `error` 를 보내며 서버 로그에 WARN 을 남긴다. 감소·중복은 조용히 무시 |
 | → | state | 게임 상태(형식 자유). 다른 참가자에게 그대로 중계 |
 | → | chat | `{text}` 200자 |
 | → | rematch | 방장, 종료 후. 점수 초기화하고 바로 카운트다운 |
@@ -77,7 +102,21 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | ← | chat / chatHistory | 채팅, 입장 시 최근 50개 |
 | ← | error / pong | |
 
+WebSocket `/ws/me?token=JWT` — 로그인한 브라우저의 개인 채널
+
+| 방향 | type | 내용 |
+|---|---|---|
+| ← | hello | 연결 직후. 연결이 살아 있는 동안 온라인으로 보인다 (마지막 세션이 닫히면 오프라인). 안 읽은 수는 REST 로 읽는다 |
+| → | activity | `{activity: MENU·LOBBY·PLAYING, gameId?, roomId?}` 화면이 바뀔 때 |
+| → | ping / ← pong | 25초마다. 75초 동안 아무것도 없으면 오프라인 |
+| ← | notification | `{item, unread}` 새 알림이 생기는 즉시 |
+| ← | dm | `{message, unread}` 새 쪽지가 저장되는 즉시 (보낸 사람의 다른 탭에도) |
+
+**시각 정책**: DB(`TIMESTAMP WITH TIME ZONE`)와 서버 안에서는 UTC 인스턴트로 다루고, 응답·WebSocket 메시지로 나갈 때는 `2026-09-06T16:12:34.123+09:00` 처럼 KST 오프셋 문자열로 직렬화한다(`config/JacksonConfig`). 일 단위 집계(방문·통계)는 Asia/Seoul 날짜 기준.
+
 방 상태와 채팅은 메모리에만 있다. 대기·종료 중에 나가면 방에서 빠지고, 진행 중에 연결이 끊기면 자리를 남겨 둔다(턴제는 봇이 대신). 전원 끊긴 채 60초가 지나거나 방이 비면 사라진다.
+
+한 판이 끝나면 `RoomFinished` 이벤트로 참가자 전원의 이용 기록이 `game_play` 에(게스트 포함, 관리자 통계용), 로그인한 참가자의 기록이 `game_score` 에 남고(점수 게임은 점수, 턴제는 순위), 결과·최고 기록 갱신·초대는 `notification` 에 쌓여 알림 API 로 읽는다. 게스트(토큰 없이 입장)는 기록도 알림도 없다.
 
 ## 구조
 
@@ -85,12 +124,19 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 
 ```
 config/   보안, 스케줄러, 설정 프로퍼티
-game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·turnBased). TurnGame 인터페이스
+game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·turnBased). TurnGame·ScoreReplayer 인터페이스
   yut/    윷놀이 규칙·봇 (29칸 경로, 지름길, 빽도, 잡기·업기, 턴 30초), 천사·악마 카드(잡기·방 도착·시작 때 천사 4 + 악마 1 더미에서 한 장, 15초), 항복
-user/     계정 (로그인 예정)
-score/    점수·리더보드
+game2048/ 2048 재생 검증. 웹 logic.ts 의 Java 포팅(Board2048·Mulberry32), 방의 seed 로 입력 로그를 돌려 점수 재계산
+user/     계정(닉네임+비밀번호, JWT), 친구(일방향), 접속 상태(하트비트, 메모리)
+score/    점수·리더보드, 사용자별 게임 기록 (방 종료 이벤트로 기록)
+realtime/ 개인 채널 /ws/me (접속 상태, 모듈 공용 푸시)
+notification/ 알림 (환영·결과·최고 기록·초대)
+dm/       1:1 쪽지 (conversation · conversation_member(읽음 커서) · message, 커서 페이징)
+word/     글딱지 (꼬들형). 자모 6개 판정(WordJudge), KST 날짜 번호(WordCalendar, 2026-09-06 = 1번), 시작 시 TSV 시드(WordSeeder)
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
-visit/    방문자 수 (site_visit 일별 카운트, Asia/Seoul)
+visit/    방문자 수 (site_visit 일별 카운트 + site_visitor 일별 방문자 해시, Asia/Seoul)
 ```
 
-모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 서버에 없고 점수와 상태를 중계만 한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
+글딱지는 정답을 서버만 알고, 클라이언트는 추측 자모를 보내 자리별 판정만 받는다. 정답 순서표(`word_puzzle`, 779개)와 추측 사전(`word_dictionary`, 3만 1천 단어)은 `src/main/resources/word/*.tsv` 를 첫 기동 때 비어 있는 테이블에 넣는다(`noriter.word.seed=false` 로 끌 수 있음). 단어·뜻풀이는 국립국어원 표준국어대사전(공공누리 제1유형)에서, 정답 후보 선별에 쓴 단어 빈도는 FrequencyWords(OpenSubtitles, CC BY-SA)에서 가져왔다.
+
+모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 클라이언트에 있고 서버는 점수와 상태를 중계한다. 다만 2048 은 방에서 끝날 때 입력 로그(`finish.moves`)를 함께 받아 `ScoreReplayer`(`game2048`)가 같은 seed 로 재생한 점수를 채택하므로 콘솔에서 점수만 바꿔 보내도 소용없다. 계단은 프레임 타이밍에 결과가 달려 재생하지 않고 경과 시간 대비 상한으로 본다. 혼자 하기도 같은 검증을 거친다: 시작 때 서버가 seed 와 `playId` 를 주고, 종료 때 점수(2048 은 입력 로그도)를 받아 확정한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.

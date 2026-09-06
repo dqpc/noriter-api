@@ -22,7 +22,7 @@ public record RoomResponse(
     public record GameInfo(String name, int minPlayers, int maxPlayersLimit, Long matchDurationSeconds,
                            Map<String, List<Object>> optionChoices, boolean turnBased, boolean uniqueCharacters) {}
 
-    public record Player(String id, String nickname, String character, long score, boolean finished, Integer rank, boolean connected) {}
+    public record Player(String id, String nickname, String character, long score, boolean finished, Integer rank, boolean connected, Long userId) {}
 
     public static RoomResponse from(RoomSnapshot s) {
         var g = s.game();
@@ -30,6 +30,6 @@ public record RoomResponse(
                 s.id(), s.gameId(),
                 new GameInfo(g.name(), g.minPlayers(), g.maxPlayersLimit(), g.matchDurationSeconds(), g.optionChoices(), g.turnBased(), g.uniqueCharacters()),
                 s.status(), s.hostId(), s.maxPlayers(), s.options(), s.seed(), s.startAt(), s.endAt(),
-                s.players().stream().map(p -> new Player(p.id(), p.nickname(), p.character(), p.score(), p.finished(), p.rank(), p.connected())).toList());
+                s.players().stream().map(p -> new Player(p.id(), p.nickname(), p.character(), p.score(), p.finished(), p.rank(), p.connected(), p.userId())).toList());
     }
 }

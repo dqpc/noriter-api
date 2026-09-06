@@ -9,7 +9,12 @@ server:
   port: 0
 
 noriter:
+  auth:
+    secret: test-only-secret-that-is-long-enough-for-hs256!
   cors:
     allowed-origins: http://localhost:5173
   game:
     dev-options: false
+  word:
+    answers: classpath:word-test/answers.tsv
+    dictionary: classpath:word-test/dictionary.tsv

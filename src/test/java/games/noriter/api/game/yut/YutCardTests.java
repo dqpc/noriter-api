@@ -282,4 +282,16 @@ class YutCardTests {
         assertThat(o.ended()).isTrue();
         assertThat(o.finishedOrder).hasSize(1);
     }
+
+    @Test
+    void activeToggleEffectsAreLeftOutOfTheNextPile() {
+        s.effects("a").chooseThrow = true;
+        s.effects("a").shieldUntil = s.effects("a").turnNo + 1;
+        s.effects("a").skipNext = true;
+        place(piece("a", 0), Path.RING, 3);
+
+        var pile = game.buildPile(s, "a", CardTrigger.BANG, 0, List.of(), 0);
+        assertThat(pile).doesNotContain(Card.CHOOSE_THROW, Card.SHIELD, Card.REST);
+        assertThat(pile).hasSize(5);
+    }
 }

@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import games.noriter.api.game.GameCatalog;
+import games.noriter.api.game2048.Board2048;
+import games.noriter.api.game2048.Game2048Replay;
 import games.noriter.api.room.infra.InMemoryRoomRepository;
+import java.util.Map;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,6 +28,7 @@ class RoomServiceTests {
     List<RoomPlayerState> relayed;
     List<RoomGameState> states;
     List<Runnable> scheduled;
+    List<Object> published;
     RoomService service;
 
     @BeforeEach
@@ -34,6 +38,7 @@ class RoomServiceTests {
         relayed = new ArrayList<>();
         states = new ArrayList<>();
         scheduled = new ArrayList<>();
+        published = new ArrayList<>();
         TaskScheduler scheduler = new TaskScheduler() {
             @Override public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) { throw new UnsupportedOperationException(); }
             @Override public ScheduledFuture<?> schedule(Runnable task, Instant startTime) { scheduled.add(task); return null; }
@@ -48,8 +53,8 @@ class RoomServiceTests {
             public void playerState(RoomPlayerState s) { relayed.add(s); }
             public void gameState(RoomGameState s) { states.add(s); }
         };
-        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false)), List.of(new games.noriter.api.game.yut.YutGame())), List.of(b),
-                scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new RoomService(new InMemoryRoomRepository(), new GameCatalog(new games.noriter.api.config.NoriterProperties(new games.noriter.api.config.NoriterProperties.Cors(List.of()), new games.noriter.api.config.NoriterProperties.Game(false), new games.noriter.api.config.NoriterProperties.Auth("x")), List.of(new games.noriter.api.game.yut.YutGame()), List.of(new Game2048Replay())), List.of(b),
+                scheduler, Clock.fixed(NOW, ZoneOffset.UTC), published::add);
     }
 
     @Test
@@ -64,13 +69,13 @@ class RoomServiceTests {
     @Test
     void firstJoinerBecomesHostAndOnlyHostChangesSettings() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A", "rabbit");
-        var room = service.join(id, "b", "B", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
+        var room = service.join(id, "b", "B", "rabbit", null);
         assertThat(room.hostId()).isEqualTo("a");
 
         assertThatThrownBy(() -> service.setMaxPlayers(id, "b", 2)).isInstanceOf(RoomException.class);
         assertThat(service.setMaxPlayers(id, "a", 2).maxPlayers()).isEqualTo(2);
-        assertThatThrownBy(() -> service.join(id, "c", "C", "rabbit")).hasMessageContaining("full");
+        assertThatThrownBy(() -> service.join(id, "c", "C", "rabbit", null)).hasMessageContaining("full");
         assertThatThrownBy(() -> service.setMaxPlayers(id, "a", 9)).hasMessageContaining("between");
     }
 
@@ -78,8 +83,8 @@ class RoomServiceTests {
     void optionsDefaultFromSpecAndHostCanChangeWithinChoices() {
         var id = service.create("2048").id();
         assertThat(service.find(id).orElseThrow().options()).containsEntry("target", 2048);
-        service.join(id, "a", "A", "rabbit");
-        service.join(id, "b", "B", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "rabbit", null);
 
         assertThat(service.setOptions(id, "a", java.util.Map.of("target", 512)).options()).containsEntry("target", 512);
         assertThat(service.setOptions(id, "a", java.util.Map.of("target", "1024")).options()).containsEntry("target", 1024);
@@ -91,8 +96,8 @@ class RoomServiceTests {
     @Test
     void hostLeavingPromotesNextPlayer() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A", "rabbit");
-        service.join(id, "b", "B", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "rabbit", null);
         service.leave(id, "a");
         assertThat(service.find(id).orElseThrow().hostId()).isEqualTo("b");
         service.leave(id, "b");
@@ -102,9 +107,9 @@ class RoomServiceTests {
     @Test
     void fullMatchLifecycleRanksByScore() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A", "rabbit");
-        service.join(id, "b", "B", "rabbit");
-        service.join(id, "c", "C", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "rabbit", null);
+        service.join(id, "c", "C", "rabbit", null);
 
         var countdown = service.start(id, "a");
         assertThat(countdown.status()).isEqualTo(RoomStatus.COUNTDOWN);
@@ -138,8 +143,8 @@ class RoomServiceTests {
     @Test
     void tiedScoresShareRank() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A", "rabbit");
-        service.join(id, "b", "B", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "rabbit", null);
         service.start(id, "a");
         scheduled.get(0).run();
         service.finish(id, "a", 100);
@@ -152,12 +157,12 @@ class RoomServiceTests {
     @Test
     void chatIsDeliveredAndKeptInHistoryWithSystemMessages() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
         service.chat(id, "a", "  hello  ");
         service.chat(id, "a", "   ");
         assertThatThrownBy(() -> service.chat(id, "zzz", "hi")).hasMessageContaining("not in room");
         assertThatThrownBy(() -> service.chat(id, "a", "x".repeat(201))).hasMessageContaining("too long");
-        service.join(id, "b", "B", "rabbit");
+        service.join(id, "b", "B", "rabbit", null);
         service.leave(id, "b");
 
         assertThat(chats).extracting(RoomChatMessage::text)
@@ -170,8 +175,8 @@ class RoomServiceTests {
     @Test
     void gameWithoutDurationEndsOnlyWhenAllFinish() {
         var id = service.create("stairs").id();
-        service.join(id, "a", "A", "rabbit");
-        service.join(id, "b", "B", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "rabbit", null);
         var cd = service.start(id, "a");
         assertThat(cd.endAt()).isNull();
         assertThat(scheduled).hasSize(1);
@@ -188,7 +193,7 @@ class RoomServiceTests {
     @Test
     void playerCanChangeCharacter() {
         var id = service.create("2048").id();
-        service.join(id, "a", "A", "rabbit");
+        service.join(id, "a", "A", "rabbit", null);
         var snap = service.setCharacter(id, "a", "tiger");
         assertThat(snap.players().get(0).character()).isEqualTo("tiger");
         assertThatThrownBy(() -> service.setCharacter(id, "zzz", "ox")).hasMessageContaining("not in room");
@@ -197,8 +202,8 @@ class RoomServiceTests {
     @Test
     void hostCanRematchAfterFinishAndStateIsRelayedOnlyWhilePlaying() {
         var id = service.create("stairs").id();
-        service.join(id, "a", "A", "rat");
-        service.join(id, "b", "B", "ox");
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "ox", null);
         service.relayState(id, "a", java.util.Map.of("steps", 1));
         assertThat(relayed).isEmpty();
         service.start(id, "a");
@@ -222,8 +227,8 @@ class RoomServiceTests {
     void turnBasedRoomStartsEngineAndRejectsDuplicateCharacters() {
         var id = service.create("yut").id();
         assertThat(service.find(id).orElseThrow().game().turnBased()).isTrue();
-        service.join(id, "a", "A", "rat");
-        service.join(id, "b", "B", "rat");
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "rat", null);
         assertThatThrownBy(() -> service.start(id, "a")).hasMessageContaining("duplicate");
         service.setCharacter(id, "b", "ox");
         service.setOptions(id, "a", java.util.Map.of("cards", false));
@@ -242,19 +247,19 @@ class RoomServiceTests {
         assertThat(((java.util.List<?>) states.get(states.size() - 1).view().get("players"))).hasSize(2);
         assertThat(botOf(states.get(states.size() - 1), "b")).isTrue();
 
-        service.join(id, "b", "B", "ox");
+        service.join(id, "b", "B", "ox", null);
         var afterRejoin = service.find(id).orElseThrow();
         assertThat(afterRejoin.players().get(1).connected()).isTrue();
         assertThat(botOf(states.get(states.size() - 1), "b")).isFalse();
         assertThat(chats).extracting(RoomChatMessage::text).contains("B 님이 다시 들어왔습니다");
-        assertThatThrownBy(() -> service.join(id, "c", "C", "tiger")).hasMessageContaining("already started");
+        assertThatThrownBy(() -> service.join(id, "c", "C", "tiger", null)).hasMessageContaining("already started");
     }
 
     @Test
     void disconnectDuringRelayGameKeepsSeatAndRemovesRoomAfterGraceWhenNobodyReturns() {
         var id = service.create("stairs").id();
-        service.join(id, "a", "A", "rat");
-        service.join(id, "b", "B", "ox");
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "ox", null);
         service.start(id, "a");
         scheduled.get(0).run();
         service.leave(id, "a");
@@ -271,7 +276,7 @@ class RoomServiceTests {
     @Test
     void roomAbandonedMidGameIsRemovedAfterGrace() {
         var id = service.create("stairs").id();
-        service.join(id, "a", "A", "rat");
+        service.join(id, "a", "A", "rat", null);
         service.start(id, "a");
         scheduled.get(0).run();
         service.leave(id, "a");
@@ -289,5 +294,137 @@ class RoomServiceTests {
     @Test
     void rejectsUnknownGame() {
         assertThatThrownBy(() -> service.create("nope")).hasMessageContaining("unknown game");
+    }
+
+    @Test
+    void implausibleScoreIsRejectedWithErrorAndFinalScoreFallsBackToLastAccepted() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "tiger", null);
+        service.start(id, "a");
+        scheduled.get(0).run();
+
+        service.score(id, "a", 20);
+        // 시계가 멈춰 있으니 시작 직후: 40칸/초 × 여유 2초 = 80 이 한도
+        assertThatThrownBy(() -> service.score(id, "a", 500)).isInstanceOf(RoomException.class).hasMessageContaining("rejected");
+        assertThat(service.find(id).orElseThrow().players().get(0).score()).isEqualTo(20);
+
+        assertThatThrownBy(() -> service.finish(id, "a", 9_999)).isInstanceOf(RoomException.class).hasMessageContaining("last accepted");
+        var a = service.find(id).orElseThrow().players().get(0);
+        assertThat(a.finished()).isTrue();
+        assertThat(a.score()).isEqualTo(20);
+
+        service.finish(id, "b", 30);
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.FINISHED);
+    }
+
+    @Test
+    void finishedRoomPublishesResultOnceWithUserIds() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", 7L);
+        service.join(id, "b", "B", "ox", null);
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.finish(id, "a", 100);
+        service.finish(id, "b", 300);
+
+        var finished = published.stream().filter(RoomFinished.class::isInstance).map(RoomFinished.class::cast).toList();
+        assertThat(finished).hasSize(1);
+        var results = finished.get(0).results();
+        assertThat(results).extracting(RoomFinished.Result::userId).containsExactly(7L, null);
+        assertThat(results).extracting(RoomFinished.Result::rank).containsExactly(2, 1);
+        assertThat(finished.get(0).gameId()).isEqualTo("2048");
+    }
+
+    /** 방의 seed 로 실제 둘 수 있는 수를 골라 입력 로그를 만든다 */
+    static String legitMoves(long seed, int target, int steps) {
+        var board = new Board2048(seed, target);
+        var log = new StringBuilder();
+        for (int i = 0; i < steps && !board.ended(); i++) {
+            for (char code : "0123".toCharArray()) {
+                if (board.step(code)) {
+                    log.append(code);
+                    break;
+                }
+            }
+        }
+        return log.toString();
+    }
+
+    @Test
+    void finishWithMovesReplacesClientScoreByReplayedScore() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "ox", null);
+        var seed = service.start(id, "a").seed();
+        scheduled.get(0).run();
+        var moves = legitMoves(seed, 2048, 40);
+        var expected = new Game2048Replay().replay(seed, Map.of("target", 2048), moves).score();
+        assertThat(expected).isPositive().isLessThan(1_500);
+
+        // 개연성 검사는 통과하는 중간 점수를 미리 올려 두어도 재생 점수가 덮는다
+        service.score(id, "a", 1_500);
+        service.finish(id, "a", 999_999, moves);
+        service.finish(id, "b", expected, moves);
+        var room = service.find(id).orElseThrow();
+        assertThat(room.players()).extracting(RoomSnapshot.PlayerSnapshot::score).containsExactly(expected, expected);
+    }
+
+    @Test
+    void finishWithBrokenMovesKeepsScoreUpToLastValidMove() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        var seed = service.start(id, "a").seed();
+        scheduled.get(0).run();
+        var moves = legitMoves(seed, 2048, 30);
+        var half = moves.substring(0, 10);
+        var expected = new Game2048Replay().replay(seed, Map.of("target", 2048), half).score();
+
+        service.finish(id, "a", 500_000, half + "x" + moves.substring(10));
+        assertThat(service.find(id).orElseThrow().players().get(0).score()).isEqualTo(expected);
+    }
+
+    @Test
+    void finishWithoutMovesOrWithoutReplayerTrustsClient() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        service.start(id, "a");
+        scheduled.get(0).run();
+        service.finish(id, "a", 123);
+        assertThat(service.find(id).orElseThrow().players().get(0).score()).isEqualTo(123);
+
+        var stairs = service.create("stairs").id();
+        service.join(stairs, "a", "A", "rat", null);
+        service.start(stairs, "a");
+        scheduled.get(scheduled.size() - 1).run();
+        service.finish(stairs, "a", 77, "0000");
+        assertThat(service.find(stairs).orElseThrow().players().get(0).score()).isEqualTo(77);
+    }
+
+    @Test
+    void inviteRequiresWaitingRoomAndMembership() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", 7L);
+
+        service.invite(id, 7L, "A", 9L);
+        assertThat(published).filteredOn(RoomInvited.class::isInstance).hasSize(1);
+        assertThatThrownBy(() -> service.invite(id, 8L, "X", 9L)).hasMessageContaining("not in room");
+        assertThatThrownBy(() -> service.invite(id, 7L, "A", 7L)).hasMessageContaining("already in room");
+    }
+
+    @Test
+    void hostCanHandOverOnlyWhileWaitingToConnectedPlayer() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "ox", null);
+
+        assertThatThrownBy(() -> service.transferHost(id, "b", "a")).hasMessageContaining("only host");
+        assertThatThrownBy(() -> service.transferHost(id, "a", "zzz")).hasMessageContaining("not in room");
+        var room = service.transferHost(id, "a", "b");
+        assertThat(room.hostId()).isEqualTo("b");
+        assertThat(chats.getLast().text()).contains("B 님이 방장");
+
+        service.start(id, "b");
+        assertThatThrownBy(() -> service.transferHost(id, "b", "a")).hasMessageContaining("running");
     }
 }
