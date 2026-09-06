@@ -347,14 +347,23 @@ public class YutGame implements TurnGame {
 
     static boolean eligible(YutState s, String player, Card card, CardTrigger trigger, Piece mover, List<CapturedPiece> captured, int captureBonus) {
         var mine = s.pieces.get(player);
+        var e = s.effects(player);
         boolean moverOnBoard = mover != null && mover.onBoard();
         boolean anyOnBoard = mine.stream().anyMatch(Piece::onBoard);
+        // 켜짐/꺼짐 효과는 이미 걸려 있으면 더미에서 뺀다 (겹쳐도 의미가 없으므로). 한 번 더는 횟수가 쌓이니 항상 가능
         return switch (card) {
-            case ONE_MORE, CHOOSE_THROW, BACKDO_IMMUNE, SHORTCUT, GREED, CURSED_BACKDO, REST -> true;
+            case ONE_MORE -> true;
+            case CHOOSE_THROW -> !e.chooseThrow;
+            case BACKDO_IMMUNE -> !e.backdoImmune();
+            case SHORTCUT -> !e.shortcutOpen;
+            case GREED -> !e.stepBonus;
+            case CURSED_BACKDO -> !e.forcedBackdo;
+            case REST -> !e.skipNext;
             case ONE_STEP -> moverOnBoard;
             case NEW_PIECE -> mine.stream().anyMatch(Piece::waiting);
             case STACK_UP -> moverOnBoard && stackUpCandidate(s, player, mover) != null;
-            case SHIELD, TARGET -> anyOnBoard;
+            case SHIELD -> anyOnBoard && !e.shield();
+            case TARGET -> anyOnBoard && !e.target();
             case FORFEIT -> captureBonus > 0;
             case RELEASE -> !captured.isEmpty();
             case STEP_BACK -> moverOnBoard && YutRules.back(mover) != null;
