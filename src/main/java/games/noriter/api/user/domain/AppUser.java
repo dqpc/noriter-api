@@ -55,6 +55,9 @@ public class AppUser {
     @Column(nullable = false)
     private Instant createdAt;
 
+    /** 마지막으로 로그인하거나 개인 채널이 붙은 시각. 하트비트마다 쓰지는 않는다. */
+    private Instant lastSeenAt;
+
     protected AppUser() {}
 
     public AppUser(String provider, String providerId, String nickname) {
@@ -86,6 +89,9 @@ public class AppUser {
     public Presence getPresence() { return presence; }
     public Role getRole() { return role; }
     public Instant getCreatedAt() { return createdAt; }
+    public Instant getLastSeenAt() { return lastSeenAt; }
+
+    public void seen(Instant at) { this.lastSeenAt = at; }
 
     public void setCharacterId(String characterId) { this.characterId = characterId; }
     public void setPresence(Presence presence) { this.presence = presence; }
@@ -95,6 +101,6 @@ public class AppUser {
     }
 
     public UserProfile toProfile() {
-        return new UserProfile(id, nickname, email, characterId, presence, createdAt);
+        return new UserProfile(id, nickname, email, characterId, presence, createdAt, lastSeenAt);
     }
 }

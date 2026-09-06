@@ -56,7 +56,7 @@ REST
 | GET | /api/users?nickname= | 닉네임으로 계정 찾기 (대소문자 무시). 없으면 `[]` — 가입 가능 여부 확인 |
 | POST | /api/users | 가입 `{nickname, password, email?, characterId?}` → `{token, user}` (409 중복, 400 형식) |
 | POST | /api/sessions | 로그인 `{nickname, password}` → `{token, user}` (401) |
-| GET / PATCH | /api/users/me | 내 정보 / `{presence?, characterId?}` 변경. presence: ONLINE·AWAY·BUSY·INVISIBLE |
+| GET / PATCH | /api/users/me | 내 정보(마지막 접속 `lastSeenAt` 포함) / `{presence?, characterId?}` 변경. presence: ONLINE·AWAY·BUSY·INVISIBLE |
 | PUT / DELETE | /api/users/me/presence | 접속 하트비트 REST 판 (웹은 아래 `/ws/me` 를 쓴다) / 오프라인 |
 | GET | /api/users/me/friends | 친구 목록 (닉네임·캐릭터·접속 상태) |
 | PUT / DELETE | /api/users/me/friends/{userId} | 친구 추가 / 삭제. 일방향(팔로우)이라 상대에게 알리지 않는다 |

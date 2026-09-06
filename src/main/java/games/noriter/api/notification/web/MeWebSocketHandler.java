@@ -42,6 +42,7 @@ class MeWebSocketHandler extends TextWebSocketHandler {
         MeSessions.bind(session, userId);
         sessions.add(userId, session);
         users.heartbeat(userId, Activity.MENU, null, null);
+        users.markSeen(userId);
         sessions.send(session, new MeServerMessage.Hello(notifications.unreadCount(userId)));
     }
 

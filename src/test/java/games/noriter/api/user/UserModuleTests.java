@@ -37,6 +37,7 @@ class UserModuleTests {
 
         var login = users.login("goose", "pass1234");
         assertThat(login.user().nickname()).isEqualTo("Goose");
+        assertThat(login.user().lastSeenAt()).isNotNull();
         assertThat(login.user().characterId()).isEqualTo("tiger");
         assertThat(users.authenticate(login.token())).map(UserProfile::nickname).contains("Goose");
         assertThat(users.findByNickname("GOOSE")).isPresent();
