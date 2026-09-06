@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 오늘의 단어. 정답은 서버만 알고, 클라이언트는 추측을 보내 자모별 판정을 받는다. */
+/** 글딱지. 정답은 서버만 알고, 클라이언트는 추측을 보내 자모별 판정을 받는다. */
 @Service
 @RequiredArgsConstructor
 public class WordService {
