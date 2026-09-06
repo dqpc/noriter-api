@@ -14,7 +14,7 @@
 
 **의존성 주입은 Lombok `@RequiredArgsConstructor`** 로 하고 설정값은 `@ConfigurationProperties` record(`NoriterProperties`)로 받는다. 빌드는 Gradle(Kotlin DSL), 테스트는 JUnit 5 + AssertJ 이며 WebSocket 은 실제 서버를 띄워 클라이언트 두 개로 검증한다.
 
-**배포는 집 서버컴에서 self-hosted runner 가 한다.** GitHub Actions 가 서버컴(Ubuntu Server)에서 테스트·bootJar 후 systemd 서비스를 재시작하고, dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
+**빌드는 GitHub 호스트 러너, 배포는 집 서버컴의 self-hosted runner 가 한다.** GitHub Actions 가 GitHub 쪽에서 테스트·bootJar 를 돌려 jar 를 아티팩트로 올리고, 서버컴(Ubuntu Server)의 러너는 그 jar 를 받아 교체하고 systemd 서비스를 재시작만 한다(서버컴 CPU 를 빌드에 쓰지 않으려고). dev(8081)와 prod(8080) 인스턴스가 각자 DB 를 갖는다. 외부 공개는 도메인 구매 전까지 Cloudflare Worker 프록시(`edge/api-proxy`)가 KV 에 기록된 Quick Tunnel 주소로 요청을 넘기는 임시 구성이다.
 
 ## 주소
 
@@ -23,7 +23,7 @@
 | prod | main | https://noriter-api.asgd56.workers.dev |
 | dev | develop | https://noriter-api-dev.asgd56.workers.dev |
 
-집 서버컴에서 두 인스턴스가 돌고, GitHub Actions self-hosted runner 가 브랜치 push 마다 재배포한다. 외부 공개는 Cloudflare Worker 프록시 + Quick Tunnel (도메인 구매 전 임시).
+집 서버컴에서 두 인스턴스가 돌고, 브랜치 push 마다 GitHub 호스트 러너가 빌드한 jar 를 서버컴의 self-hosted runner 가 받아 재배포한다. 외부 공개는 Cloudflare Worker 프록시 + Quick Tunnel (도메인 구매 전 임시).
 
 ## 실행
 
