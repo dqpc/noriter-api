@@ -14,11 +14,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class RoomService {
 
@@ -216,14 +218,30 @@ public class RoomService {
 
     public RoomSnapshot score(String roomId, String playerId, long score) {
         var room = rooms.require(roomId);
-        room.score(playerId, score);
+        var now = Instant.now(clock);
+        var result = room.score(playerId, score, now);
+        if (result == Room.ScoreResult.REJECTED) {
+            warnRejected(room, playerId, score, now);
+            throw new RoomException("score rejected");
+        }
         return publish(room);
     }
 
     public RoomSnapshot finish(String roomId, String playerId, long score) {
         var room = rooms.require(roomId);
-        room.finish(playerId, score);
-        return publish(room);
+        var now = Instant.now(clock);
+        var result = room.finish(playerId, score, now);
+        var snapshot = publish(room);
+        if (result == Room.ScoreResult.REJECTED) {
+            warnRejected(room, playerId, score, now);
+            throw new RoomException("final score rejected, last accepted score kept");
+        }
+        return snapshot;
+    }
+
+    private void warnRejected(Room room, String playerId, long score, Instant now) {
+        long elapsed = room.startAt() == null ? 0 : Duration.between(room.startAt(), now).toSeconds();
+        log.warn("score rejected room={} game={} player={} score={} elapsedSec={}", room.id(), room.spec().id(), playerId, score, elapsed);
     }
 
     private RoomSnapshot publish(Room room) {

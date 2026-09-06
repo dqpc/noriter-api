@@ -294,6 +294,28 @@ class RoomServiceTests {
     }
 
     @Test
+    void implausibleScoreIsRejectedWithErrorAndFinalScoreFallsBackToLastAccepted() {
+        var id = service.create("stairs").id();
+        service.join(id, "a", "A", "rabbit", null);
+        service.join(id, "b", "B", "tiger", null);
+        service.start(id, "a");
+        scheduled.get(0).run();
+
+        service.score(id, "a", 20);
+        // 시계가 멈춰 있으니 시작 직후: 40칸/초 × 여유 2초 = 80 이 한도
+        assertThatThrownBy(() -> service.score(id, "a", 500)).isInstanceOf(RoomException.class).hasMessageContaining("rejected");
+        assertThat(service.find(id).orElseThrow().players().get(0).score()).isEqualTo(20);
+
+        assertThatThrownBy(() -> service.finish(id, "a", 9_999)).isInstanceOf(RoomException.class).hasMessageContaining("last accepted");
+        var a = service.find(id).orElseThrow().players().get(0);
+        assertThat(a.finished()).isTrue();
+        assertThat(a.score()).isEqualTo(20);
+
+        service.finish(id, "b", 30);
+        assertThat(service.find(id).orElseThrow().status()).isEqualTo(RoomStatus.FINISHED);
+    }
+
+    @Test
     void finishedRoomPublishesResultOnceWithUserIds() {
         var id = service.create("2048").id();
         service.join(id, "a", "A", "rat", 7L);
