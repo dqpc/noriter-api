@@ -117,6 +117,8 @@ final class YutState implements TurnState {
     final List<Rolled> queue = new ArrayList<>();
     boolean[] sticks = new boolean[4];
     int bonusThrows;
+    /** 같은 결과가 연달아 나와도 클라이언트가 새 던지기로 구분하도록 매번 올린다 */
+    int throwSeq;
     Instant deadline;
     Map<String, Object> lastEvent = Map.of("type", "start");
     CardDraw cardDraw;
