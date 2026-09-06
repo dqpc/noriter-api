@@ -1,4 +1,4 @@
-package games.noriter.api.notification.web;
+package games.noriter.api.realtime.web;
 
 import games.noriter.api.config.NoriterProperties;
 import lombok.RequiredArgsConstructor;

@@ -48,6 +48,11 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public String characterOf(Long id) {
+        return users.findById(id).map(AppUser::getCharacterId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
     public Map<Long, UserSummary> findSummaries(Collection<Long> ids) {
         if (ids.isEmpty()) return Map.of();
         return users.findAllByIdIn(ids).stream()

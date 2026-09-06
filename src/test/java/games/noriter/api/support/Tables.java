@@ -6,6 +6,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public final class Tables {
 
     public static void clearUsers(JdbcTemplate jdbc) {
+        jdbc.update("delete from message");
+        jdbc.update("delete from conversation_member");
+        jdbc.update("delete from conversation");
         jdbc.update("delete from notification");
         jdbc.update("delete from game_play");
         jdbc.update("delete from game_score");
