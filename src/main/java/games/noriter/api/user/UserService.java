@@ -102,6 +102,11 @@ public class UserService {
         presence.touch(userId, activity == null ? Activity.MENU : activity, gameId, roomId);
     }
 
+    /** 활동 내용은 그대로 두고 살아 있음만 갱신 */
+    public void touch(Long userId) {
+        presence.touch(userId);
+    }
+
     public void offline(Long userId) {
         presence.clear(userId);
     }

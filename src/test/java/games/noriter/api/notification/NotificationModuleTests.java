@@ -7,6 +7,8 @@ import games.noriter.api.room.RoomInvited;
 import games.noriter.api.score.BestScoreUpdated;
 import games.noriter.api.support.Tables;
 import games.noriter.api.user.UserRegistered;
+import games.noriter.api.user.UserService;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ class NotificationModuleTests {
     @Autowired NotificationService notifications;
     @Autowired ApplicationEventPublisher events;
     @Autowired JdbcTemplate jdbc;
+    @MockitoBean UserService users;
 
     @BeforeEach
     void setUp() {

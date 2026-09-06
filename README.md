@@ -56,7 +56,7 @@ REST
 | POST | /api/users | 가입 `{nickname, password, email?, characterId?}` → `{token, user}` (409 중복, 400 형식) |
 | POST | /api/sessions | 로그인 `{nickname, password}` → `{token, user}` (401) |
 | GET / PATCH | /api/users/me | 내 정보 / `{presence?, characterId?}` 변경. presence: ONLINE·AWAY·BUSY·INVISIBLE |
-| PUT / DELETE | /api/users/me/presence | 접속 하트비트 `{activity: MENU·LOBBY·PLAYING, gameId?, roomId?}` (75초 안에 다시 와야 온라인) / 오프라인 |
+| PUT / DELETE | /api/users/me/presence | 접속 하트비트 REST 판 (웹은 아래 `/ws/me` 를 쓴다) / 오프라인 |
 | GET | /api/users/me/friends | 친구 목록 (닉네임·캐릭터·접속 상태) |
 | PUT / DELETE | /api/users/me/friends/{userId} | 친구 추가 / 삭제. 일방향(팔로우)이라 상대에게 알리지 않는다 |
 | GET / PATCH | /api/users/me/notifications | 알림 50개 + 읽지 않은 수 / `{read:true}` 전부 읽음. `PATCH /{id}` 는 하나만 |
@@ -88,6 +88,15 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | ← | chat / chatHistory | 채팅, 입장 시 최근 50개 |
 | ← | error / pong | |
 
+WebSocket `/ws/me?token=JWT` — 로그인한 브라우저의 개인 채널
+
+| 방향 | type | 내용 |
+|---|---|---|
+| ← | hello | `{unread}` 연결 직후. 연결이 살아 있는 동안 온라인으로 보인다 (마지막 세션이 닫히면 오프라인) |
+| → | activity | `{activity: MENU·LOBBY·PLAYING, gameId?, roomId?}` 화면이 바뀔 때 |
+| → | ping / ← pong | 25초마다. 75초 동안 아무것도 없으면 오프라인 |
+| ← | notification | `{item, unread}` 새 알림이 생기는 즉시 |
+
 방 상태와 채팅은 메모리에만 있다. 대기·종료 중에 나가면 방에서 빠지고, 진행 중에 연결이 끊기면 자리를 남겨 둔다(턴제는 봇이 대신). 전원 끊긴 채 60초가 지나거나 방이 비면 사라진다.
 
 한 판이 끝나면 `RoomFinished` 이벤트로 로그인한 참가자의 기록이 `game_score` 에 남고(점수 게임은 점수, 턴제는 순위), 결과·최고 기록 갱신·초대는 `notification` 에 쌓여 알림 API 로 읽는다. 게스트(토큰 없이 입장)는 기록도 알림도 없다.
@@ -102,7 +111,7 @@ game/     GameSpec 레지스트리 (인원 범위·제한시간·seed·옵션·t
   yut/    윷놀이 규칙·봇 (29칸 경로, 지름길, 빽도, 잡기·업기, 턴 30초), 천사·악마 카드(잡기·방 도착·시작 때 천사 4 + 악마 1 더미에서 한 장, 15초), 항복
 user/     계정(닉네임+비밀번호, JWT), 친구(일방향), 접속 상태(하트비트, 메모리)
 score/    점수·리더보드, 사용자별 게임 기록 (방 종료 이벤트로 기록)
-notification/ 알림 (환영·결과·최고 기록·초대)
+notification/ 알림 (환영·결과·최고 기록·초대), 개인 채널 /ws/me (알림 푸시 + 접속 상태)
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
 visit/    방문자 수 (site_visit 일별 카운트, Asia/Seoul)
 ```

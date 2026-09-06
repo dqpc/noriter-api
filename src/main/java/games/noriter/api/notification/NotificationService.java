@@ -1,6 +1,7 @@
 package games.noriter.api.notification;
 
 import games.noriter.api.notification.domain.Notification;
+import games.noriter.api.notification.domain.NotificationPusher;
 import games.noriter.api.notification.infra.NotificationRepository;
 import games.noriter.api.room.RoomFinished;
 import games.noriter.api.room.RoomInvited;
@@ -22,6 +23,7 @@ public class NotificationService {
     static final int PAGE = 50;
 
     private final NotificationRepository notifications;
+    private final NotificationPusher pusher;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -78,6 +80,7 @@ public class NotificationService {
     }
 
     private void push(Long userId, NotificationKind kind, String title, String body, String link) {
-        notifications.save(new Notification(userId, kind, title, body, link, Instant.now(clock)));
+        var saved = notifications.save(new Notification(userId, kind, title, body, link, Instant.now(clock)));
+        pusher.push(userId, saved.toView(), notifications.countByUserIdAndReadAtIsNull(userId));
     }
 }
