@@ -47,6 +47,14 @@ class WordModuleTests {
     }
 
     @Test
+    void reseedRefreshesOnlyChangedMeanings() {
+        jdbc.update("update word_puzzle set meaning = '옛 뜻' where number = 1");
+        seeder.seed();
+        assertThat(jdbc.queryForObject("select meaning from word_puzzle where number = 1", String.class)).isEqualTo("입의 가장자리 살.");
+        assertThat(jdbc.queryForObject("select word from word_puzzle where number = 1", String.class)).isEqualTo("입술");
+    }
+
+    @Test
     void todayIsNumberedFromEpochAndResetsAtKstMidnight() {
         var today = words.today();
         assertThat(today.number()).isEqualTo(3);
