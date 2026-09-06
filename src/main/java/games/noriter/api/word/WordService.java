@@ -1,9 +1,11 @@
 package games.noriter.api.word;
 
 import games.noriter.api.score.ScoreService;
+import games.noriter.api.word.domain.WordGuess;
 import games.noriter.api.word.domain.WordPuzzle;
 import games.noriter.api.word.domain.WordResult;
 import games.noriter.api.word.infra.WordDictionaryRepository;
+import games.noriter.api.word.infra.WordGuessRepository;
 import games.noriter.api.word.infra.WordPuzzleRepository;
 import games.noriter.api.word.infra.WordResultRepository;
 import java.time.Clock;
@@ -27,6 +29,7 @@ public class WordService {
     private final WordPuzzleRepository puzzles;
     private final WordDictionaryRepository dictionary;
     private final WordResultRepository results;
+    private final WordGuessRepository guesses;
     private final ScoreService scores;
     private final Clock clock;
 
@@ -36,12 +39,40 @@ public class WordService {
         return new WordToday(WordCalendar.numberOf(date), date, TRIES, WordJamo.LENGTH, WordCalendar.resetAt(date));
     }
 
-    @Transactional(readOnly = true)
     public List<WordJudge.Status> guess(int number, String jamo) {
+        return guess(number, null, jamo).statuses();
+    }
+
+    /** 계정이면 추측을 저장한다. 여섯 번을 다 썼거나 이미 맞혔으면 더 받지 않는다. */
+    @Transactional
+    public WordGuessOutcome guess(int number, Long userId, String jamo) {
         requireOpen(number);
         if (!WordJamo.isValid(jamo)) throw new WordException(WordException.Kind.INVALID, "자모 6개로 풀어 쓴 단어여야 합니다");
         if (!dictionary.existsById(jamo)) throw new WordException(WordException.Kind.NOT_IN_DICTIONARY, "아, 목록에 단어가 없네요.");
-        return WordJudge.judge(answerOf(number).jamo(), jamo);
+        var answer = answerOf(number).jamo();
+        var statuses = WordJudge.judge(answer, jamo);
+        if (userId == null) return new WordGuessOutcome(statuses, null);
+
+        if (results.findByUserIdAndNumber(userId, number).isPresent()) {
+            throw new WordException(WordException.Kind.INVALID, "이미 끝난 문제입니다");
+        }
+        var prior = guesses.findByUserIdAndNumberOrderBySeqAsc(userId, number);
+        if (prior.stream().anyMatch(g -> g.getJamo().equals(answer))) {
+            throw new WordException(WordException.Kind.INVALID, "이미 맞힌 문제입니다");
+        }
+        if (prior.size() >= TRIES) throw new WordException(WordException.Kind.INVALID, "여섯 번을 모두 썼습니다");
+        int seq = prior.size() + 1;
+        guesses.save(new WordGuess(userId, number, seq, jamo, Instant.now(clock)));
+        return new WordGuessOutcome(statuses, seq);
+    }
+
+    /** 새로고침 뒤 판 복원용. 판정도 같이 내려주지만 정답은 내려주지 않는다. */
+    @Transactional(readOnly = true)
+    public List<WordGuessView> guesses(int number, Long userId) {
+        var answer = answerOf(number).jamo();
+        return guesses.findByUserIdAndNumberOrderBySeqAsc(userId, number).stream()
+                .map(g -> new WordGuessView(g.getJamo(), WordJudge.judge(answer, g.getJamo())))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -58,18 +89,31 @@ public class WordService {
         return answerOf(number);
     }
 
-    /** 한 판 종료. 계정이면 하루 한 번만 기록하고(재제출은 무시) 이용 기록도 남긴다. */
+    /**
+     * 한 판 종료. 계정이면 하루 한 번만 기록하고(재제출은 무시) 이용 기록도 남긴다.
+     * 시도 횟수는 클라이언트가 보낸 값이 아니라 저장된 추측으로 계산한다 (브라우저 조작 방지).
+     */
     @Transactional
     public WordAnswer finish(int number, Long userId, Integer attempts, boolean hard) {
         requireOpen(number);
         if (attempts != null && (attempts < 1 || attempts > TRIES)) {
             throw new WordException(WordException.Kind.INVALID, "attempts 는 1~6 이거나 비어 있어야 합니다");
         }
+        var answer = answerOf(number);
         if (userId != null && results.findByUserIdAndNumber(userId, number).isEmpty()) {
-            results.save(new WordResult(userId, number, attempts, hard, Instant.now(clock)));
-            scores.recordSolo(GAME_ID, userId, attempts == null ? 0L : (long) (TRIES + 1 - attempts));
+            var computed = attemptsFromGuesses(number, userId, answer.jamo());
+            results.save(new WordResult(userId, number, computed, hard, Instant.now(clock)));
+            scores.recordSolo(GAME_ID, userId, computed == null ? 0L : (long) (TRIES + 1 - computed));
         }
-        return answerOf(number);
+        return answer;
+    }
+
+    /** 맞힌 추측의 순번, 여섯 번 다 틀렸으면 null. 둘 다 아니면 아직 끝난 판이 아니다. */
+    private Integer attemptsFromGuesses(int number, Long userId, String answer) {
+        var prior = guesses.findByUserIdAndNumberOrderBySeqAsc(userId, number);
+        for (var g : prior) if (g.getJamo().equals(answer)) return g.getSeq();
+        if (prior.size() >= TRIES) return null;
+        throw new WordException(WordException.Kind.INVALID, "아직 끝나지 않은 문제입니다");
     }
 
     @Transactional(readOnly = true)

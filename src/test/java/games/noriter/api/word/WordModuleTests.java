@@ -89,10 +89,20 @@ class WordModuleTests {
         assertThat(jdbc.queryForObject("select count(*) from game_play", Long.class)).isZero();
     }
 
+    private static final String WRONG = "ㅇㅣㅂㅎㅏㄱ"; // 입학: 어느 정답과도 다르다
+
+    private void miss(int number, int times) {
+        for (int i = 0; i < times; i++) words.guess(number, 1L, WRONG);
+    }
+
     @Test
     void accountFinishRecordsOnceAndBuildsStats() {
-        words.finish(2, 1L, 5, false);
-        words.finish(3, 1L, 2, true);
+        miss(2, 4);
+        words.guess(2, 1L, "ㅎㅏㄴㄱㅡㄹ");
+        words.finish(2, 1L, 1, false); // 클라이언트가 1이라 우겨도 서버는 5로 계산
+        words.guess(3, 1L, "ㅅㅓㄹㄴㅏㄹ");
+        words.guess(3, 1L, "ㅁㅏㅇㅣㅋㅡ");
+        words.finish(3, 1L, null, true);
         words.finish(3, 1L, 1, false); // 재제출은 무시
 
         assertThat(jdbc.queryForObject("select count(*) from word_result", Long.class)).isEqualTo(2);
@@ -112,7 +122,8 @@ class WordModuleTests {
     @Test
     void failureBreaksStreakButYesterdayKeepsCurrent() {
         jdbc.update("insert into word_result (user_id, number, attempts, hard, created_at) values (1, 1, 3, false, now())");
-        words.finish(2, 1L, null, false);
+        miss(2, 6);
+        words.finish(2, 1L, 2, false); // 여섯 번 다 틀렸으니 클라이언트 값과 무관하게 실패
 
         var afterFail = words.stats(1L);
         assertThat(afterFail.played()).isEqualTo(2);
@@ -123,7 +134,9 @@ class WordModuleTests {
 
         Tables.clearUsers(jdbc);
         Tables.insertUser(jdbc, 1, "goose");
-        words.finish(2, 1L, 6, false); // 어제만 맞혔고 오늘은 아직
+        miss(2, 5);
+        words.guess(2, 1L, "ㅎㅏㄴㄱㅡㄹ");
+        words.finish(2, 1L, null, false); // 어제만 맞혔고(여섯 번째에) 오늘은 아직
         var pending = words.stats(1L);
         assertThat(pending.currentStreak()).isEqualTo(1);
         assertThat(pending.distribution()).isEqualTo(List.of(0, 0, 0, 0, 0, 1));
@@ -133,5 +146,35 @@ class WordModuleTests {
     void finishValidatesAttemptsAndNumber() {
         assertThatThrownBy(() -> words.finish(3, 1L, 7, false)).matches(e -> ((WordException) e).kind() == WordException.Kind.INVALID);
         assertThatThrownBy(() -> words.finish(9, 1L, 1, false)).matches(e -> ((WordException) e).kind() == WordException.Kind.INVALID);
+    }
+
+    @Test
+    void accountGuessesAreStoredAndCappedAtSix() {
+        assertThatThrownBy(() -> words.finish(3, 1L, 3, false))
+                .hasMessageContaining("끝나지 않은")
+                .matches(e -> ((WordException) e).kind() == WordException.Kind.INVALID);
+
+        for (int i = 1; i <= 6; i++) assertThat(words.guess(3, 1L, WRONG).seq()).isEqualTo(i);
+        assertThatThrownBy(() -> words.guess(3, 1L, WRONG)).hasMessageContaining("여섯 번");
+        assertThat(words.guesses(3, 1L)).hasSize(6);
+        assertThat(words.guesses(3, 1L).getFirst().statuses()).containsExactly(
+                WordJudge.Status.PRESENT, WordJudge.Status.PRESENT, WordJudge.Status.ABSENT,
+                WordJudge.Status.ABSENT, WordJudge.Status.PRESENT, WordJudge.Status.ABSENT);
+
+        words.finish(3, 1L, 1, false);
+        assertThat(jdbc.queryForObject("select attempts from word_result where number = 3", Integer.class)).isNull();
+        assertThatThrownBy(() -> words.guess(3, 1L, WRONG)).hasMessageContaining("이미 끝난");
+
+        assertThat(words.guess(2, 1L, "ㅎㅏㄴㄱㅡㄹ").seq()).isEqualTo(1);
+        assertThatThrownBy(() -> words.guess(2, 1L, WRONG)).hasMessageContaining("이미 맞힌");
+        words.finish(2, 1L, 4, false);
+        assertThat(jdbc.queryForObject("select attempts from word_result where number = 2", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void guestGuessesAreNotStored() {
+        for (int i = 0; i < 10; i++) assertThat(words.guess(3, null, WRONG).seq()).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from word_guess", Long.class)).isZero();
+        assertThat(words.finish(3, null, 2, false).word()).isEqualTo("마이크");
     }
 }

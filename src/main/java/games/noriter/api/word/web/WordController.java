@@ -1,7 +1,6 @@
 package games.noriter.api.word.web;
 
 import games.noriter.api.word.WordException;
-import games.noriter.api.word.WordJudge;
 import games.noriter.api.word.WordService;
 import games.noriter.api.word.web.dto.AnswerResponse;
 import games.noriter.api.word.web.dto.DictionaryResponse;
@@ -40,13 +39,15 @@ class WordController {
     }
 
     @GetMapping("/today")
-    TodayResponse today() {
-        return TodayResponse.from(words.today());
+    TodayResponse today(@AuthenticationPrincipal Jwt jwt) {
+        var me = userId(jwt);
+        var today = words.today();
+        return TodayResponse.from(today, me == null ? null : words.guesses(today.number(), me));
     }
 
     @PostMapping("/guesses")
-    GuessResponse guess(@RequestBody @Validated GuessRequest req) {
-        return new GuessResponse(words.guess(req.number(), req.jamo()).stream().map(WordJudge.Status::json).toList());
+    GuessResponse guess(@AuthenticationPrincipal Jwt jwt, @RequestBody @Validated GuessRequest req) {
+        return GuessResponse.from(words.guess(req.number(), userId(jwt), req.jamo()));
     }
 
     /** 게스트는 정답만 받고, 계정은 결과가 저장되어 전적도 같이 온다 */
