@@ -100,7 +100,10 @@ public class WordService {
             throw new WordException(WordException.Kind.INVALID, "attempts 는 1~6 이거나 비어 있어야 합니다");
         }
         var answer = answerOf(number);
-        if (userId != null && results.findByUserIdAndNumber(userId, number).isEmpty()) {
+        if (userId == null) {
+            // 게스트는 추측을 저장하지 않아 점수를 못 세지만, 이용 기록은 다른 게임처럼 남긴다
+            scores.recordSolo(GAME_ID, null, null);
+        } else if (results.findByUserIdAndNumber(userId, number).isEmpty()) {
             var computed = attemptsFromGuesses(number, userId, answer.jamo());
             results.save(new WordResult(userId, number, computed, hard, Instant.now(clock)));
             scores.recordSolo(GAME_ID, userId, computed == null ? 0L : (long) (TRIES + 1 - computed));
