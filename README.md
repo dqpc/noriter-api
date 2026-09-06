@@ -52,7 +52,8 @@ REST
 | POST | /api/rooms | 방 생성 `{gameId}` → 방 스냅샷 (id 가 초대 코드) |
 | GET | /api/rooms/{id} | 방 조회 |
 | GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 |
-| POST | /api/games/{gameId}/plays | 혼자 하기 한 판 종료 `{score}`. 게스트는 이용 통계(`game_play`)에만, 로그인(Bearer)이면 점수 기록(`game_score`, 리더보드·프로필 최고 기록·갱신 알림)도 남는다 |
+| POST | /api/games/{gameId}/plays | 혼자 하기 시작 → 201 `{playId, seed}`. 서버가 seed 를 정하고 세션 행(`game_play`, score null)을 먼저 남긴다. 게스트도 쓴다. 턴제 게임은 400 |
+| POST | /api/games/{gameId}/plays/{playId}/finish | 혼자 하기 종료 `{score, moves?}` → `{score, adjusted}`. 서버가 점수를 확정한다: 2048 은 `moves` 를 seed 로 재생해 다시 계산, 계단은 경과 시간 대비 상한(`GameSpec.scoreLimits`)으로 깎는다. 확정 점수가 보낸 값과 다르면 `adjusted`. 로그인(Bearer)이면 점수 기록(`game_score`, 리더보드·프로필 최고 기록·갱신 알림)도 남는다. 남의 판·없는 playId 404, 두 번 종료 409 |
 | GET | /api/games/word/today | 글딱지 문제 번호 `{number, date, tries:6, length:6, resetAt, guesses}`. 정답은 주지 않는다. 로그인이면 `guesses` 에 오늘 보낸 추측 `[{jamo, statuses}]`(새로고침 복원용), 게스트는 null |
 | POST | /api/games/word/guesses | `{number, jamo}` 자모 6개 추측 → `{statuses:[correct·present·absent ×6], seq}`. 사전에 없으면 422 `NOT_IN_DICTIONARY`, 오늘·어제 번호만 400 아님. 로그인(Bearer)이면 추측을 `word_guess` 에 저장하고 `seq`(몇 번째인지)를 준다. 여섯 번을 다 썼거나 이미 맞혔거나 끝난 문제면 400 `INVALID` |
 | POST | /api/games/word/results | `{number, attempts(1~6, 실패면 null), hard}` 한 판 종료 → `{answer:{jamo, word, meaning}, stats}`. 로그인이면 `attempts` 는 무시하고 저장된 추측으로 시도 횟수를 계산해(맞힌 추측의 seq, 여섯 번 다 틀리면 실패) `word_result` 에 하루 한 번 기록(재제출 무시)하고 이용·점수 기록도 남긴다(점수 = 7 − 시도). 아직 안 끝난 판이면 400. 게스트는 `stats` 가 null |
@@ -138,4 +139,4 @@ visit/    방문자 수 (site_visit 일별 카운트 + site_visitor 일별 방�
 
 글딱지는 정답을 서버만 알고, 클라이언트는 추측 자모를 보내 자리별 판정만 받는다. 정답 순서표(`word_puzzle`, 779개)와 추측 사전(`word_dictionary`, 3만 1천 단어)은 `src/main/resources/word/*.tsv` 를 첫 기동 때 비어 있는 테이블에 넣는다(`noriter.word.seed=false` 로 끌 수 있음). 단어·뜻풀이는 국립국어원 표준국어대사전(공공누리 제1유형)에서, 정답 후보 선별에 쓴 단어 빈도는 FrequencyWords(OpenSubtitles, CC BY-SA)에서 가져왔다.
 
-모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 클라이언트에 있고 서버는 점수와 상태를 중계한다. 다만 2048 은 방에서 끝날 때 입력 로그(`finish.moves`)를 함께 받아 `ScoreReplayer`(`game2048`)가 같은 seed 로 재생한 점수를 채택하므로 콘솔에서 점수만 바꿔 보내도 소용없다. 계단은 프레임 타이밍에 결과가 달려 재생하지 않는다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
+모듈 루트에는 다른 모듈에 공개하는 서비스와 읽기 모델만 두고, `domain` / `infra` / `web` 으로 나눈다. 2048·계단 규칙은 클라이언트에 있고 서버는 점수와 상태를 중계한다. 다만 2048 은 방에서 끝날 때 입력 로그(`finish.moves`)를 함께 받아 `ScoreReplayer`(`game2048`)가 같은 seed 로 재생한 점수를 채택하므로 콘솔에서 점수만 바꿔 보내도 소용없다. 계단은 프레임 타이밍에 결과가 달려 재생하지 않고 경과 시간 대비 상한으로 본다. 혼자 하기도 같은 검증을 거친다: 시작 때 서버가 seed 와 `playId` 를 주고, 종료 때 점수(2048 은 입력 로그도)를 받아 확정한다. 윷놀이처럼 판이 하나인 턴제 게임은 `TurnGame` 구현체가 서버에서 판정하며, 방은 `deadline` 시각에 `auto` 를 예약해 시간 초과와 봇 차례를 처리한다.
