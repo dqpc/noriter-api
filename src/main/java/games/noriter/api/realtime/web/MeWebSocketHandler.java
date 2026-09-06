@@ -1,9 +1,8 @@
-package games.noriter.api.notification.web;
+package games.noriter.api.realtime.web;
 
-import games.noriter.api.notification.NotificationService;
-import games.noriter.api.notification.infra.MeSessions;
-import games.noriter.api.notification.web.dto.MeClientMessage;
-import games.noriter.api.notification.web.dto.MeServerMessage;
+import games.noriter.api.realtime.infra.MeSessions;
+import games.noriter.api.realtime.web.dto.MeClientMessage;
+import games.noriter.api.realtime.web.dto.MeServerMessage;
 import games.noriter.api.user.Activity;
 import games.noriter.api.user.UserService;
 import java.io.IOException;
@@ -19,21 +18,19 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * 로그인한 브라우저가 하나씩 여는 개인 채널 `/ws/me?token=JWT`.
- * 연결이 살아 있으면 온라인이고, 새 알림은 이 채널로 바로 온다.
+ * 연결이 살아 있으면 온라인이고, 알림·쪽지 같은 푸시가 이 채널로 온다. 연결 직후 hello 만 보내고 내용은 각 모듈의 REST 로 읽는다.
  */
 @Component
 @RequiredArgsConstructor
 class MeWebSocketHandler extends TextWebSocketHandler {
 
     private final UserService users;
-    private final NotificationService notifications;
     private final MeSessions sessions;
     private final ObjectMapper json;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
-        var token = tokenOf(session.getUri());
-        var account = users.authenticate(token);
+        var account = users.authenticate(tokenOf(session.getUri()));
         if (account.isEmpty()) {
             session.close(CloseStatus.POLICY_VIOLATION.withReason("unauthorized"));
             return;
@@ -43,7 +40,7 @@ class MeWebSocketHandler extends TextWebSocketHandler {
         sessions.add(userId, session);
         users.heartbeat(userId, Activity.MENU, null, null);
         users.markSeen(userId);
-        sessions.send(session, new MeServerMessage.Hello(notifications.unreadCount(userId)));
+        sessions.send(session, new MeServerMessage.Hello());
     }
 
     @Override

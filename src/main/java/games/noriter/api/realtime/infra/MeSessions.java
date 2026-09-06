@@ -1,8 +1,5 @@
-package games.noriter.api.notification.infra;
+package games.noriter.api.realtime.infra;
 
-import games.noriter.api.notification.NotificationView;
-import games.noriter.api.notification.domain.NotificationPusher;
-import games.noriter.api.notification.web.dto.MeServerMessage;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 /** 사용자별 `/ws/me` 세션. 탭을 여러 개 열면 세션도 여러 개. */
 @Component
 @RequiredArgsConstructor
-public class MeSessions implements NotificationPusher {
+public class MeSessions {
 
     private static final Logger log = LoggerFactory.getLogger(MeSessions.class);
     private static final String USER_ATTR = "userId";
@@ -49,15 +46,18 @@ public class MeSessions implements NotificationPusher {
         return true;
     }
 
-    @Override
-    public void push(Long userId, NotificationView view, long unread) {
+    public boolean isConnected(Long userId) {
+        var set = byUser.get(userId);
+        return set != null && !set.isEmpty();
+    }
+
+    public void push(Long userId, Object payload) {
         var set = byUser.get(userId);
         if (set == null) return;
-        var payload = new MeServerMessage.Pushed(view, unread);
         set.forEach(s -> send(s, payload));
     }
 
-    public void send(WebSocketSession session, MeServerMessage payload) {
+    public void send(WebSocketSession session, Object payload) {
         try {
             synchronized (session) {
                 if (session.isOpen()) session.sendMessage(new TextMessage(json.writeValueAsString(payload)));

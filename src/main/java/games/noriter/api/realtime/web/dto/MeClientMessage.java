@@ -1,4 +1,4 @@
-package games.noriter.api.notification.web.dto;
+package games.noriter.api.realtime.web.dto;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

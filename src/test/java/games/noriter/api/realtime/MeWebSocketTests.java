@@ -1,4 +1,4 @@
-package games.noriter.api.notification;
+package games.noriter.api.realtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -72,7 +72,6 @@ class MeWebSocketTests {
 
         var hello = client.next();
         assertThat(hello.path("type").asText()).isEqualTo("hello");
-        assertThat(hello.path("unread").asLong()).isEqualTo(1);
         assertThat(users.presenceOf(goose.user().id()).state()).isEqualTo(PresenceView.State.ONLINE);
 
         client.send("{\"type\":\"activity\",\"activity\":\"LOBBY\",\"gameId\":\"yut\",\"roomId\":\"ab12\"}");
