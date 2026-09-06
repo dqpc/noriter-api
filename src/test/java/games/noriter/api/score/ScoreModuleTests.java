@@ -1,6 +1,7 @@
 package games.noriter.api.score;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import games.noriter.api.room.RoomFinished;
 import games.noriter.api.support.Tables;
@@ -19,7 +20,7 @@ import org.springframework.modulith.test.Scenario;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@ApplicationModuleTest(extraIncludes = {"game", "config"})
+@ApplicationModuleTest(extraIncludes = {"game", "game2048", "config"})
 @ActiveProfiles("test")
 class ScoreModuleTests {
 
@@ -84,6 +85,71 @@ class ScoreModuleTests {
 
     static RoomFinished.Result result(String playerId, Long userId, long score, int rank) {
         return new RoomFinished.Result(playerId, userId, "n-" + playerId, score, rank);
+    }
+
+    @Test
+    void soloSessionStartsWithSeedAndFinishesWithinLimits() {
+        var started = scores.startSolo("stairs", 1L);
+        assertThat(started.playId()).hasSizeGreaterThan(15);
+        assertThat(started.seed()).isPositive();
+
+        var finished = scores.finishSolo("stairs", started.playId(), 1L, 30L, null);
+        assertThat(finished.score()).isEqualTo(30);
+        assertThat(finished.adjusted()).isFalse();
+        assertThat(scores.statsOf(1L)).singleElement().matches(s -> s.gameId().equals("stairs") && s.best() == 30);
+        var play = plays.findByToken(started.playId()).orElseThrow();
+        assertThat(play.isFinished()).isTrue();
+        assertThat(play.getScore()).isEqualTo(30);
+    }
+
+    @Test
+    void soloScoreBeyondElapsedTimeIsCappedToAllowedMaximum() {
+        var started = scores.startSolo("stairs", null);
+        // 시작 직후(경과 0초 + 여유 2초)에 계단 500칸은 불가능: 초당 40칸 × 2초 = 80 으로 깎인다
+        var finished = scores.finishSolo("stairs", started.playId(), null, 500L, null);
+        assertThat(finished.score()).isEqualTo(80);
+        assertThat(finished.adjusted()).isTrue();
+        assertThat(plays.findByToken(started.playId()).orElseThrow().getScore()).isEqualTo(80);
+    }
+
+    @Test
+    void solo2048ReplaysMovesAndOverridesClientScore() {
+        var started = scores.startSolo("2048", 1L);
+        var board = new games.noriter.api.game2048.Board2048(started.seed(), 2048);
+        var moves = new StringBuilder();
+        for (int i = 0; i < 40 && !board.ended(); i++) {
+            for (char code : "0123".toCharArray()) {
+                if (board.step(code)) {
+                    moves.append(code);
+                    break;
+                }
+            }
+        }
+        assertThat(board.score()).isPositive();
+
+        var finished = scores.finishSolo("2048", started.playId(), 1L, 999_999L, moves.toString());
+        assertThat(finished.score()).isEqualTo(board.score());
+        assertThat(finished.adjusted()).isTrue();
+        assertThat(scores.leaderboard("2048", 10)).singleElement().matches(e -> e.score() == board.score());
+    }
+
+    @Test
+    void soloFinishRejectsUnknownForeignOrRepeatedPlays() {
+        assertThatThrownBy(() -> scores.finishSolo("2048", "nope", null, 10L, null))
+                .isInstanceOf(PlayException.class).matches(e -> ((PlayException) e).kind() == PlayException.Kind.NOT_FOUND);
+
+        var mine = scores.startSolo("2048", 1L);
+        assertThatThrownBy(() -> scores.finishSolo("2048", mine.playId(), null, 10L, null))
+                .isInstanceOf(PlayException.class).matches(e -> ((PlayException) e).kind() == PlayException.Kind.NOT_FOUND);
+        assertThatThrownBy(() -> scores.finishSolo("stairs", mine.playId(), 1L, 10L, null))
+                .isInstanceOf(PlayException.class).matches(e -> ((PlayException) e).kind() == PlayException.Kind.NOT_FOUND);
+
+        scores.finishSolo("2048", mine.playId(), 1L, 10L, null);
+        assertThatThrownBy(() -> scores.finishSolo("2048", mine.playId(), 1L, 20L, null))
+                .isInstanceOf(PlayException.class).matches(e -> ((PlayException) e).kind() == PlayException.Kind.ALREADY_FINISHED);
+
+        assertThatThrownBy(() -> scores.startSolo("yut", 1L))
+                .isInstanceOf(PlayException.class).matches(e -> ((PlayException) e).kind() == PlayException.Kind.INVALID);
     }
 
     @Test

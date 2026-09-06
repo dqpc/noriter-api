@@ -36,7 +36,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/games/word/stats").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/games/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/games/*/plays").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/games/*/plays", "/api/games/*/plays/*/finish").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/games/word/guesses", "/api/games/word/results").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/rooms").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/*").permitAll()
