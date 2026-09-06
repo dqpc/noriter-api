@@ -185,10 +185,13 @@ public class YutGame implements TurnGame {
         if (e.stepBonus && steps > 0) { steps++; e.stepBonus = false; boosted = true; }
         s.sticks = sticks;
         s.queue.add(new Rolled(result, steps));
-        if (s.bonusThrows > 0) s.bonusThrows--;
+        boolean free = s.freeThrow;
+        s.freeThrow = false;
+        if (!free && s.bonusThrows > 0) s.bonusThrows--;
         if (e.extraThrows > 0) { s.bonusThrows += e.extraThrows; e.extraThrows = 0; }
         var ev = new LinkedHashMap<String, Object>();
         ev.put("type", "throw");
+        ev.put("seq", ++s.throwSeq);
         ev.put("player", player);
         ev.put("result", result.name());
         ev.put("steps", steps);
@@ -198,6 +201,7 @@ public class YutGame implements TurnGame {
         s.lastEvent = ev;
         if (result.again() && !chosenFlag) {
             s.phase = Phase.THROW;
+            s.freeThrow = true;
         } else if (YutRules.legalMoves(s).isEmpty()) {
             s.lastEvent = Map.of("type", "skip", "player", player, "result", result.name());
             s.queue.clear();
@@ -286,6 +290,7 @@ public class YutGame implements TurnGame {
     private void endTurn(YutState s, Instant now) {
         s.queue.clear();
         s.bonusThrows = 0;
+        s.freeThrow = false;
         s.turn = nextActive(s, s.turn);
         beginTurn(s, now);
     }
