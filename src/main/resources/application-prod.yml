@@ -8,6 +8,8 @@ server:
   port: ${PORT:8080}
 
 noriter:
+  auth:
+    secret: ${AUTH_SECRET:prod-placeholder-secret-set-AUTH_SECRET-env!}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://noriter-web.asgd56.workers.dev}
   game:

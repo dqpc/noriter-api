@@ -20,7 +20,7 @@ import java.util.Map;
 })
 public sealed interface ClientMessage {
 
-    record Join(String nickname, String character, String playerId) implements ClientMessage {}
+    record Join(String nickname, String character, String playerId, String token) implements ClientMessage {}
 
     record Settings(Integer maxPlayers, Map<String, Object> options) implements ClientMessage {}
 

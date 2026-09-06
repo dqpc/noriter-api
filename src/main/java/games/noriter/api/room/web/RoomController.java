@@ -4,7 +4,11 @@ import games.noriter.api.game.UnknownGameException;
 import games.noriter.api.room.RoomException;
 import games.noriter.api.room.RoomService;
 import games.noriter.api.room.web.dto.CreateRoomRequest;
+import games.noriter.api.room.web.dto.InviteRequest;
 import games.noriter.api.room.web.dto.RoomResponse;
+import games.noriter.api.user.UserService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 class RoomController {
 
     private final RoomService rooms;
+    private final UserService users;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -35,6 +40,14 @@ class RoomController {
     ResponseEntity<RoomResponse> get(@PathVariable String roomId) {
         return rooms.find(roomId).map(RoomResponse::from).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{roomId}/invitations")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void invite(@AuthenticationPrincipal Jwt jwt, @PathVariable String roomId, @RequestBody @Validated InviteRequest req) {
+        var from = users.me(Long.parseLong(jwt.getSubject()));
+        if (!users.presenceOf(req.userId()).invitable()) throw new RoomException("user is not online");
+        rooms.invite(roomId, from.id(), from.nickname(), req.userId());
     }
 
     @ExceptionHandler({UnknownGameException.class, RoomException.class})

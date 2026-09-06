@@ -25,6 +25,15 @@ jobs:
           set -e
           cp build/libs/noriter-api-*.jar "/opt/noriter/api-$TARGET/app.jar.new"
           mv "/opt/noriter/api-$TARGET/app.jar.new" "/opt/noriter/api-$TARGET/app.jar"
+          # JWT 서명 비밀: 인스턴스마다 한 번 생성해 env 파일에 두고 systemd drop-in 으로 읽힌다
+          ENV_FILE="/opt/noriter/api-$TARGET/env"
+          if [ ! -f "$ENV_FILE" ]; then (umask 077; printf 'AUTH_SECRET=%s\n' "$(openssl rand -base64 48 | tr -d '\n')" > "$ENV_FILE"); fi
+          DROPIN="/etc/systemd/system/noriter-api-$TARGET.service.d/10-env.conf"
+          if [ ! -f "$DROPIN" ]; then
+            sudo mkdir -p "$(dirname "$DROPIN")"
+            printf '[Service]\nEnvironmentFile=%s\n' "$ENV_FILE" | sudo tee "$DROPIN" >/dev/null
+            sudo systemctl daemon-reload
+          fi
           sudo systemctl restart "noriter-api-$TARGET"
           for i in $(seq 1 90); do curl -sf "http://127.0.0.1:$PORT/actuator/health" >/dev/null && break; sleep 2; done
           curl -sf "http://127.0.0.1:$PORT/actuator/health"

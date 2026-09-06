@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,7 @@ public class RoomService {
     private final List<RoomBroadcaster> broadcasters;
     private final TaskScheduler scheduler;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
     private final SecureRandom random = new SecureRandom();
 
     public RoomSnapshot create(String gameId) {
@@ -43,9 +45,9 @@ public class RoomService {
         return rooms.find(roomId).map(Room::snapshot);
     }
 
-    public RoomSnapshot join(String roomId, String playerId, String nickname, String character) {
+    public RoomSnapshot join(String roomId, String playerId, String nickname, String character, Long userId) {
         var room = rooms.require(roomId);
-        var joined = room.join(playerId, nickname, character);
+        var joined = room.join(playerId, nickname, character, userId);
         var name = room.nicknameOf(playerId);
         switch (joined) {
             case NEW -> system(room, name + " 님이 들어왔습니다");
@@ -220,7 +222,24 @@ public class RoomService {
     private RoomSnapshot publish(Room room) {
         var snapshot = room.snapshot();
         broadcasters.forEach(b -> b.broadcast(snapshot));
+        if (snapshot.status() == RoomStatus.FINISHED && room.markResultReported()) {
+            var spec = room.spec();
+            events.publishEvent(new RoomFinished(room.id(), spec.id(), spec.name(), spec.turnBased(), spec.higherIsBetter(),
+                    snapshot.players().stream()
+                            .map(p -> new RoomFinished.Result(p.id(), p.userId(), p.nickname(), p.score(), p.rank()))
+                            .toList()));
+        }
         return snapshot;
+    }
+
+    /** 방 안의 로그인 사용자가 다른 사용자를 초대. 대기 중인 방만. 상대 접속 여부는 호출자가 확인한다. */
+    public void invite(String roomId, Long fromUserId, String fromNickname, Long toUserId) {
+        var room = rooms.require(roomId);
+        if (room.status() != RoomStatus.WAITING) throw new RoomException("game already started");
+        if (room.playerIdOfUser(fromUserId) == null) throw new RoomException("not in room");
+        if (room.playerIdOfUser(toUserId) != null) throw new RoomException("already in room");
+        var spec = room.spec();
+        events.publishEvent(new RoomInvited(room.id(), spec.id(), spec.name(), fromUserId, fromNickname, toUserId));
     }
 
     private String newId() {
