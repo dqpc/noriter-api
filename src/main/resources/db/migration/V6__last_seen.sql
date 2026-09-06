@@ -1,0 +1,1 @@
+ALTER TABLE app_user ADD COLUMN last_seen_at TIMESTAMP WITH TIME ZONE;

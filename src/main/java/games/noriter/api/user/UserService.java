@@ -6,6 +6,8 @@ import games.noriter.api.user.infra.AppUserRepository;
 import games.noriter.api.user.infra.FriendRepository;
 import games.noriter.api.user.infra.JwtTokens;
 import games.noriter.api.user.infra.PresenceTracker;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,7 @@ public class UserService {
     private final JwtTokens tokens;
     private final PresenceTracker presence;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     @Transactional
     public UserSummary findOrCreate(String provider, String providerId, String nickname) {
@@ -71,12 +74,19 @@ public class UserService {
         return new AuthResult(tokens.issue(user.getId(), user.getNickname()), user.toProfile());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResult login(String nickname, String password) {
         var user = users.findByProviderAndProviderId(AppUser.LOCAL, AppUser.key(nickname == null ? "" : nickname.strip()))
                 .filter(u -> u.getPasswordHash() != null && passwords.matches(password == null ? "" : password, u.getPasswordHash()))
                 .orElseThrow(() -> new UserException(UserException.Kind.UNAUTHORIZED, "비밀번호가 맞지 않습니다"));
+        user.seen(Instant.now(clock));
         return new AuthResult(tokens.issue(user.getId(), user.getNickname()), user.toProfile());
+    }
+
+    /** 개인 채널이 붙을 때. 마지막 접속 시각만 남긴다 */
+    @Transactional
+    public void markSeen(Long userId) {
+        users.findById(userId).ifPresent(u -> u.seen(Instant.now(clock)));
     }
 
     /** Bearer 토큰 → 계정. 만료·위조면 empty. */
