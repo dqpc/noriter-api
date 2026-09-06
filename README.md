@@ -52,6 +52,7 @@ REST
 | POST | /api/rooms | 방 생성 `{gameId}` → 방 스냅샷 (id 가 초대 코드) |
 | GET | /api/rooms/{id} | 방 조회 |
 | GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 |
+| POST | /api/games/{gameId}/plays | 혼자 하기 한 판 종료 `{score}`. 게스트도 보내며 이용 통계(`game_play`)에만 남는다 |
 | GET | /api/users?nickname= | 닉네임으로 계정 찾기 (대소문자 무시). 없으면 `[]` — 가입 가능 여부 확인 |
 | POST | /api/users | 가입 `{nickname, password, email?, characterId?}` → `{token, user}` (409 중복, 400 형식) |
 | POST | /api/sessions | 로그인 `{nickname, password}` → `{token, user}` (401) |
@@ -100,7 +101,7 @@ WebSocket `/ws/me?token=JWT` — 로그인한 브라우저의 개인 채널
 
 방 상태와 채팅은 메모리에만 있다. 대기·종료 중에 나가면 방에서 빠지고, 진행 중에 연결이 끊기면 자리를 남겨 둔다(턴제는 봇이 대신). 전원 끊긴 채 60초가 지나거나 방이 비면 사라진다.
 
-한 판이 끝나면 `RoomFinished` 이벤트로 로그인한 참가자의 기록이 `game_score` 에 남고(점수 게임은 점수, 턴제는 순위), 결과·최고 기록 갱신·초대는 `notification` 에 쌓여 알림 API 로 읽는다. 게스트(토큰 없이 입장)는 기록도 알림도 없다.
+한 판이 끝나면 `RoomFinished` 이벤트로 참가자 전원의 이용 기록이 `game_play` 에(게스트 포함, 관리자 통계용), 로그인한 참가자의 기록이 `game_score` 에 남고(점수 게임은 점수, 턴제는 순위), 결과·최고 기록 갱신·초대는 `notification` 에 쌓여 알림 API 로 읽는다. 게스트(토큰 없이 입장)는 기록도 알림도 없다.
 
 ## 구조
 
