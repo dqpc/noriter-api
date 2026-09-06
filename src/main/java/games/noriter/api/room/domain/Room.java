@@ -7,6 +7,7 @@ import games.noriter.api.room.RoomStatus;
 
 import games.noriter.api.game.GameSpec;
 import games.noriter.api.game.TurnState;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -196,7 +197,7 @@ public class Room {
     public synchronized void rematch(String playerId) {
         requireHost(playerId);
         if (status != RoomStatus.FINISHED) throw new RoomException("game is not finished");
-        players.values().forEach(p -> { p.score = 0; p.finished = false; });
+        players.values().forEach(p -> { p.score = 0; p.finished = false; p.lastScoreAt = null; p.windowStart = null; });
         resultReported = false;
         turn = null;
         status = RoomStatus.WAITING;
@@ -211,19 +212,57 @@ public class Room {
         return true;
     }
 
-    public synchronized void score(String playerId, long score) {
+    /** ACCEPTED 반영, IGNORED 무해해서 조용히 버림(감소·중복·초당 한도 초과), REJECTED 개연성 없음(마지막 정상값 유지) */
+    public enum ScoreResult { ACCEPTED, IGNORED, REJECTED }
+
+    /** 점수 메시지 초당 허용 개수. 계단은 한 칸마다 보내는데 사람 손은 초당 15번을 넘기 어렵다 */
+    public static final int SCORE_MESSAGES_PER_SECOND = 20;
+    /** 지연·재접속으로 늦게 도착한 메시지를 봐주는 여유 */
+    static final Duration SCORE_SLACK = Duration.ofSeconds(2);
+
+    public synchronized ScoreResult score(String playerId, long score, Instant now) {
         if (status != RoomStatus.PLAYING) throw new RoomException("game is not running");
         var p = requirePlayer(playerId);
-        if (p.finished) return;
-        p.score = spec.higherIsBetter() ? Math.max(p.score, score) : score;
+        if (p.finished) return ScoreResult.IGNORED;
+        if (p.overRateLimit(now)) return ScoreResult.IGNORED;
+        var result = check(p, score, now);
+        if (result == ScoreResult.ACCEPTED) accept(p, score, now);
+        return result;
     }
 
-    public synchronized void finish(String playerId, long score) {
+    /** 최종 점수가 개연성 검사에 걸리면 마지막 정상값으로 끝낸다. 방은 계속 진행된다 */
+    public synchronized ScoreResult finish(String playerId, long score, Instant now) {
         if (status != RoomStatus.PLAYING) throw new RoomException("game is not running");
         var p = requirePlayer(playerId);
-        p.score = score;
+        var result = check(p, score, now);
+        if (result == ScoreResult.ACCEPTED) accept(p, score, now);
         p.finished = true;
         if (allFinished()) status = RoomStatus.FINISHED;
+        return result;
+    }
+
+    private ScoreResult check(Player p, long score, Instant now) {
+        if (spec.higherIsBetter() && score <= p.score) return ScoreResult.IGNORED;
+        var limits = spec.scoreLimits();
+        if (limits == null) return ScoreResult.ACCEPTED;
+        if (score < 0) return ScoreResult.REJECTED;
+        long elapsed = Math.max(0, secondsBetween(startAt, now));
+        long sinceLast = p.lastScoreAt == null ? elapsed : Math.max(0, secondsBetween(p.lastScoreAt, now));
+        long slack = SCORE_SLACK.toSeconds();
+        if (score > limits.maxScore()) return ScoreResult.REJECTED;
+        if (score > limits.maxPerSecond() * (elapsed + slack)) return ScoreResult.REJECTED;
+        long allowedJump = Math.max(limits.maxJump(), limits.maxPerSecond() * (sinceLast + slack));
+        if (score - p.score > allowedJump) return ScoreResult.REJECTED;
+        return ScoreResult.ACCEPTED;
+    }
+
+    private void accept(Player p, long score, Instant now) {
+        p.score = score;
+        p.lastScoreAt = now;
+    }
+
+    private static long secondsBetween(Instant from, Instant to) {
+        return from == null ? 0 : Duration.between(from, to).toSeconds();
     }
 
     public synchronized boolean timeUp() {
@@ -278,12 +317,23 @@ public class Room {
         long score;
         boolean finished;
         boolean connected = true;
+        Instant lastScoreAt;
+        Instant windowStart;
+        int windowCount;
 
         Player(String id, String nickname, String character, Long userId) {
             this.id = id;
             this.nickname = nickname;
             this.character = character;
             this.userId = userId;
+        }
+
+        boolean overRateLimit(Instant now) {
+            if (windowStart == null || !now.isBefore(windowStart.plusSeconds(1))) {
+                windowStart = now;
+                windowCount = 0;
+            }
+            return ++windowCount > SCORE_MESSAGES_PER_SECOND;
         }
     }
 }
