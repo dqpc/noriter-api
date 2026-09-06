@@ -321,4 +321,20 @@ class RoomServiceTests {
         assertThatThrownBy(() -> service.invite(id, 8L, "X", 9L)).hasMessageContaining("not in room");
         assertThatThrownBy(() -> service.invite(id, 7L, "A", 7L)).hasMessageContaining("already in room");
     }
+
+    @Test
+    void hostCanHandOverOnlyWhileWaitingToConnectedPlayer() {
+        var id = service.create("2048").id();
+        service.join(id, "a", "A", "rat", null);
+        service.join(id, "b", "B", "ox", null);
+
+        assertThatThrownBy(() -> service.transferHost(id, "b", "a")).hasMessageContaining("only host");
+        assertThatThrownBy(() -> service.transferHost(id, "a", "zzz")).hasMessageContaining("not in room");
+        var room = service.transferHost(id, "a", "b");
+        assertThat(room.hostId()).isEqualTo("b");
+        assertThat(chats.getLast().text()).contains("B 님이 방장");
+
+        service.start(id, "b");
+        assertThatThrownBy(() -> service.transferHost(id, "b", "a")).hasMessageContaining("running");
+    }
 }

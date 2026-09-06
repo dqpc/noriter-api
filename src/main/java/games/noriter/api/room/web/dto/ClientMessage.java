@@ -16,7 +16,8 @@ import java.util.Map;
         @JsonSubTypes.Type(value = ClientMessage.Ping.class, name = "ping"),
         @JsonSubTypes.Type(value = ClientMessage.Rematch.class, name = "rematch"),
         @JsonSubTypes.Type(value = ClientMessage.State.class, name = "state"),
-        @JsonSubTypes.Type(value = ClientMessage.Action.class, name = "action")
+        @JsonSubTypes.Type(value = ClientMessage.Action.class, name = "action"),
+        @JsonSubTypes.Type(value = ClientMessage.Host.class, name = "host")
 })
 public sealed interface ClientMessage {
 
@@ -41,4 +42,7 @@ public sealed interface ClientMessage {
     record State(Map<String, Object> state) implements ClientMessage {}
 
     record Action(Map<String, Object> action) implements ClientMessage {}
+
+    /** 방장 넘기기. 방장만, 대기·종료 중에 */
+    record Host(String playerId) implements ClientMessage {}
 }

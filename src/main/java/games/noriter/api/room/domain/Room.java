@@ -138,6 +138,15 @@ public class Room {
         return players.values().stream().filter(p -> !p.connected).map(p -> p.id).toList();
     }
 
+    /** 방장이 다른 참가자에게 방장을 넘긴다. 대기·종료 중에만. */
+    public synchronized void transferHost(String from, String to) {
+        requireHost(from);
+        if (status != RoomStatus.WAITING && status != RoomStatus.FINISHED) throw new RoomException("game is running");
+        var target = requirePlayer(to);
+        if (!target.connected) throw new RoomException("player is disconnected");
+        hostId = to;
+    }
+
     private void passHostIfNeeded(String playerId) {
         if (!playerId.equals(hostId)) return;
         hostId = players.values().stream().filter(p -> p.connected).map(p -> p.id).findFirst()

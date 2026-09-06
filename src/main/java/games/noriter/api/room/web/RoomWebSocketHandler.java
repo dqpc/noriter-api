@@ -65,6 +65,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
                     if (m.options() != null) rooms.setOptions(roomId, playerId, m.options());
                 }
                 case ClientMessage.Start m -> rooms.start(roomId, playerId);
+                case ClientMessage.Host m -> rooms.transferHost(roomId, playerId, m.playerId() == null ? "" : m.playerId());
                 case ClientMessage.Score m -> rooms.score(roomId, playerId, m.score());
                 case ClientMessage.Finish m -> rooms.finish(roomId, playerId, m.score());
             }

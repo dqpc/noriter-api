@@ -75,6 +75,7 @@ WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
 | → | settings | `{maxPlayers?, options?}` 방장만, 대기 중에만 |
 | → | character | `{character}` 내 캐릭터 변경 |
 | → | start | 방장. 3초 카운트다운 후 시작, seed 배포 |
+| → | host | `{playerId}` 방장 넘기기. 방장만, 대기·종료 중에, 접속 중인 참가자에게. 방장이 나가면 자동으로 다음 접속자에게 넘어간다 |
 | → | score / finish | `{score}` 점수 갱신 / 종료 |
 | → | state | 게임 상태(형식 자유). 다른 참가자에게 그대로 중계 |
 | → | chat | `{text}` 200자 |

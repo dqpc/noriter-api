@@ -166,6 +166,13 @@ public class RoomService {
         return publish(room);
     }
 
+    public RoomSnapshot transferHost(String roomId, String playerId, String targetId) {
+        var room = rooms.require(roomId);
+        room.transferHost(playerId, targetId);
+        system(room, room.nicknameOf(targetId) + " 님이 방장이 되었습니다");
+        return publish(room);
+    }
+
     public RoomSnapshot setMaxPlayers(String roomId, String playerId, int maxPlayers) {
         var room = rooms.require(roomId);
         room.setMaxPlayers(playerId, maxPlayers);
