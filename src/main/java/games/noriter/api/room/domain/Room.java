@@ -26,6 +26,7 @@ public class Room {
     private final Deque<RoomChatMessage> chat = new ArrayDeque<>();
     private static final int CHAT_HISTORY = 50;
     private RoomStatus status = RoomStatus.WAITING;
+    private boolean resultReported;
     private String hostId;
     private int maxPlayers;
     private final Map<String, Object> options = new LinkedHashMap<>();
@@ -67,6 +68,23 @@ public class Room {
         status = RoomStatus.FINISHED;
     }
 
+    /** 종료된 판의 결과를 한 번만 내보내기 위한 표시. 처음 호출에만 true. */
+    public synchronized boolean markResultReported() {
+        if (status != RoomStatus.FINISHED || resultReported) return false;
+        resultReported = true;
+        return true;
+    }
+
+    public synchronized Long userIdOf(String playerId) {
+        var p = players.get(playerId);
+        return p == null ? null : p.userId;
+    }
+
+    public synchronized String playerIdOfUser(Long userId) {
+        if (userId == null) return null;
+        return players.values().stream().filter(p -> userId.equals(p.userId)).map(p -> p.id).findFirst().orElse(null);
+    }
+
     public synchronized String nicknameOf(String playerId) {
         var p = players.get(playerId);
         return p == null ? null : p.nickname;
@@ -87,7 +105,7 @@ public class Room {
 
     public enum Joined { NEW, REJOINED, ALREADY }
 
-    public synchronized Joined join(String playerId, String nickname, String character) {
+    public synchronized Joined join(String playerId, String nickname, String character, Long userId) {
         var existing = players.get(playerId);
         if (existing != null) {
             var result = existing.connected ? Joined.ALREADY : Joined.REJOINED;
@@ -96,7 +114,7 @@ public class Room {
         }
         if (status != RoomStatus.WAITING && status != RoomStatus.FINISHED) throw new RoomException("game already started");
         if (players.size() >= maxPlayers) throw new RoomException("room is full");
-        players.put(playerId, new Player(playerId, nickname, character));
+        players.put(playerId, new Player(playerId, nickname, character, userId));
         if (hostId == null) hostId = playerId;
         return Joined.NEW;
     }
@@ -170,6 +188,7 @@ public class Room {
         requireHost(playerId);
         if (status != RoomStatus.FINISHED) throw new RoomException("game is not finished");
         players.values().forEach(p -> { p.score = 0; p.finished = false; });
+        resultReported = false;
         turn = null;
         status = RoomStatus.WAITING;
         startAt = null;
@@ -221,7 +240,7 @@ public class Room {
             }
         }
         List<RoomSnapshot.PlayerSnapshot> list = players.values().stream()
-                .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.character, p.score, p.finished, ranks.get(p.id), p.connected))
+                .map(p -> new RoomSnapshot.PlayerSnapshot(p.id, p.nickname, p.character, p.score, p.finished, ranks.get(p.id), p.connected, p.userId))
                 .toList();
         var info = new RoomSnapshot.GameInfo(spec.name(), spec.minPlayers(), spec.maxPlayersLimit(),
                 spec.matchDuration() == null ? null : spec.matchDuration().toSeconds(), spec.optionChoices(), spec.turnBased(), spec.uniqueCharacters());
@@ -245,15 +264,17 @@ public class Room {
     private static final class Player {
         final String id;
         final String nickname;
+        final Long userId;
         String character;
         long score;
         boolean finished;
         boolean connected = true;
 
-        Player(String id, String nickname, String character) {
+        Player(String id, String nickname, String character, Long userId) {
             this.id = id;
             this.nickname = nickname;
             this.character = character;
+            this.userId = userId;
         }
     }
 }

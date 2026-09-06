@@ -6,6 +6,7 @@ import games.noriter.api.room.infra.RoomSessions;
 import games.noriter.api.room.web.dto.ChatMessage;
 import games.noriter.api.room.web.dto.ClientMessage;
 import games.noriter.api.room.web.dto.ServerMessage;
+import games.noriter.api.user.UserService;
 import java.io.IOException;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
 
     private final RoomService rooms;
     private final RoomSessions sessions;
+    private final UserService users;
     private final ObjectMapper json;
     private static final Pattern PLAYER_TOKEN = Pattern.compile("[A-Za-z0-9_-]{16,64}");
 
@@ -47,7 +49,10 @@ class RoomWebSocketHandler extends TextWebSocketHandler {
                     sessions.send(session, new ServerMessage.Hello(id));
                     sessions.send(session, new ServerMessage.ChatHistory(
                             rooms.chatHistory(roomId).stream().map(ChatMessage::from).toList()));
-                    rooms.join(roomId, id, m.nickname() == null ? "player" : m.nickname(), m.character());
+                    var account = users.authenticate(m.token());
+                    var nickname = account.map(a -> a.nickname()).orElse(m.nickname() == null ? "player" : m.nickname());
+                    var character = account.map(a -> a.characterId()).filter(c -> c != null).orElse(m.character());
+                    rooms.join(roomId, id, nickname, character, account.map(a -> a.id()).orElse(null));
                 }
                 case ClientMessage.Chat m -> rooms.chat(roomId, playerId, m.text());
                 case ClientMessage.Character m -> rooms.setCharacter(roomId, playerId, m.character());

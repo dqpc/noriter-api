@@ -8,6 +8,8 @@ server:
   port: ${PORT:8080}
 
 noriter:
+  auth:
+    secret: ${AUTH_SECRET:local-only-secret-change-me-32-bytes-min!!}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   game:
