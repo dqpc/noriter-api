@@ -90,11 +90,15 @@ class ScoreModuleTests {
     void recordsPlayForEveryParticipantIncludingGuestsAndSolo() {
         events.publishEvent(finished("yut", true, List.of(result("p1", 1L, 0, 1), result("p2", null, 0, 2))));
         scores.recordSolo("2048", null, 512L);
+        scores.recordSolo("2048", 1L, 1024L);
 
         assertThat(plays.findByGameIdOrderByCreatedAtAsc("yut")).hasSize(2)
                 .allMatch(p -> p.getPlayerCount() == 2 && p.getPlayMode() == games.noriter.api.score.domain.GamePlay.Mode.ROOM);
-        assertThat(plays.findByGameIdOrderByCreatedAtAsc("2048")).singleElement()
-                .matches(p -> p.getUserId() == null && p.getPlayMode() == games.noriter.api.score.domain.GamePlay.Mode.SOLO);
-        assertThat(scores.statsOf(1L)).hasSize(1);
+        assertThat(plays.findByGameIdOrderByCreatedAtAsc("2048")).hasSize(2)
+                .allMatch(p -> p.getPlayMode() == games.noriter.api.score.domain.GamePlay.Mode.SOLO);
+        assertThat(scores.statsOf(1L)).extracting(UserGameStats::gameId).containsExactlyInAnyOrder("yut", "2048");
+        assertThat(scores.statsOf(1L)).filteredOn(s -> s.gameId().equals("2048")).singleElement()
+                .matches(s -> s.best() == 1024 && s.plays() == 1);
+        assertThat(scores.leaderboard("2048", 10)).singleElement().matches(e -> e.score() == 1024);
     }
 }

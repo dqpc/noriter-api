@@ -52,7 +52,7 @@ REST
 | POST | /api/rooms | 방 생성 `{gameId}` → 방 스냅샷 (id 가 초대 코드) |
 | GET | /api/rooms/{id} | 방 조회 |
 | GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 |
-| POST | /api/games/{gameId}/plays | 혼자 하기 한 판 종료 `{score}`. 게스트도 보내며 이용 통계(`game_play`)에만 남는다 |
+| POST | /api/games/{gameId}/plays | 혼자 하기 한 판 종료 `{score}`. 게스트는 이용 통계(`game_play`)에만, 로그인(Bearer)이면 점수 기록(`game_score`, 리더보드·프로필 최고 기록·갱신 알림)도 남는다 |
 | GET | /api/users?nickname= | 닉네임으로 계정 찾기 (대소문자 무시). 없으면 `[]` — 가입 가능 여부 확인 |
 | POST | /api/users | 가입 `{nickname, password, email?, characterId?}` → `{token, user}` (409 중복, 400 형식) |
 | POST | /api/sessions | 로그인 `{nickname, password}` → `{token, user}` (401) |

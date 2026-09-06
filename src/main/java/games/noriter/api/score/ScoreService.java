@@ -40,11 +40,17 @@ public class ScoreService {
         events.publishEvent(new ScoreSubmitted(gameId, userId, score));
     }
 
-    /** 혼자 하기 한 판. 게스트는 userId 없이 이용 기록만 남는다. */
+    /** 혼자 하기 한 판. 게스트는 이용 기록만, 계정은 점수 기록(리더보드·프로필 최고 기록)도 남는다. */
     @Transactional
     public void recordSolo(String gameId, Long userId, Long score) {
-        games.require(gameId);
+        var spec = games.require(gameId);
         plays.save(new GamePlay(gameId, GamePlay.Mode.SOLO, null, userId, 1, score, null, Instant.now(clock)));
+        if (userId == null || score == null || spec.turnBased()) return;
+        var previous = best(userId, gameId, spec.higherIsBetter());
+        submit(gameId, userId, score);
+        if (previous.isPresent() && (spec.higherIsBetter() ? score > previous.get() : score < previous.get())) {
+            events.publishEvent(new BestScoreUpdated(userId, gameId, spec.name(), score, previous.get()));
+        }
     }
 
     /** 방 한 판이 끝나면 참가자 전원의 이용 기록을, 로그인한 참가자는 점수 기록도 남긴다. 턴제는 점수 대신 순위를 저장한다. */
