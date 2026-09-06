@@ -132,7 +132,7 @@ score/    점수·리더보드, 사용자별 게임 기록 (방 종료 이벤트
 realtime/ 개인 채널 /ws/me (접속 상태, 모듈 공용 푸시)
 notification/ 알림 (환영·결과·최고 기록·초대)
 dm/       1:1 쪽지 (conversation · conversation_member(읽음 커서) · message, 커서 페이징)
-word/     글딱지 (꼬들형). 자모 6개 판정(WordJudge), KST 날짜 번호(WordCalendar, 2026-09-06 = 1번), 시작 시 TSV 시드(WordSeeder)
+word/     글딱지 (꼬들형). 자모 6개 판정(WordJudge), KST 날짜 번호(WordCalendar, 2026-09-06 = 1번), 시작 시 TSV 시드(WordSeeder; 테이블이 차 있으면 정답 뜻풀이만 파일과 맞춤)
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
 visit/    방문자 수 (site_visit 일별 카운트 + site_visitor 일별 방문자 해시, Asia/Seoul)
 ```

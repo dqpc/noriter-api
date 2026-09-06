@@ -47,7 +47,25 @@ public class WordSeeder implements ApplicationRunner {
             var rows = read(props.answers());
             insert("insert into word_puzzle (number, jamo, word, meaning) values (?, ?, ?, ?)", rows, true);
             log.info("word_puzzle seeded: {} answers", rows.size());
+        } else {
+            refreshMeanings(read(props.answers()));
         }
+    }
+
+    /** 뜻풀이만 고친 배포는 테이블이 이미 차 있어 시드가 건너뛰므로, 같은 자모·단어의 뜻이 다르면 파일 쪽으로 맞춘다. 번호·정답은 건드리지 않는다 */
+    private void refreshMeanings(List<String[]> rows) {
+        var byJamo = new LinkedHashMap<String, String[]>();
+        for (var r : rows) byJamo.put(r[1], r);
+        var updates = new ArrayList<Object[]>();
+        jdbc.query("select jamo, word, meaning from word_puzzle", rs -> {
+            var file = byJamo.get(rs.getString("jamo"));
+            if (file == null || !file[0].equals(rs.getString("word"))) return;
+            var current = rs.getString("meaning");
+            if (!file[2].equals(current == null ? "" : current)) updates.add(new Object[] {file[2], rs.getString("jamo")});
+        });
+        if (updates.isEmpty()) return;
+        jdbc.batchUpdate("update word_puzzle set meaning = ? where jamo = ?", updates);
+        log.info("word_puzzle meanings refreshed: {} rows", updates.size());
     }
 
     private long count(String table) {
