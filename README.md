@@ -53,9 +53,9 @@ REST
 | GET | /api/rooms/{id} | 방 조회 |
 | GET | /api/games/{gameId}/leaderboard?limit= | 리더보드 |
 | POST | /api/games/{gameId}/plays | 혼자 하기 한 판 종료 `{score}`. 게스트는 이용 통계(`game_play`)에만, 로그인(Bearer)이면 점수 기록(`game_score`, 리더보드·프로필 최고 기록·갱신 알림)도 남는다 |
-| GET | /api/games/word/today | 글딱지 문제 번호 `{number, date, tries:6, length:6, resetAt}`. 정답은 주지 않는다 |
-| POST | /api/games/word/guesses | `{number, jamo}` 자모 6개 추측 → `{statuses:[correct·present·absent ×6]}`. 사전에 없으면 422 `NOT_IN_DICTIONARY`, 오늘·어제 번호만 400 아님 |
-| POST | /api/games/word/results | `{number, attempts(1~6, 실패면 null), hard}` 한 판 종료 → `{answer:{jamo, word, meaning}, stats}`. 로그인(Bearer)이면 `word_result` 에 하루 한 번 기록(재제출 무시)하고 이용·점수 기록도 남는다(점수 = 7 − 시도). 게스트는 `stats` 가 null |
+| GET | /api/games/word/today | 글딱지 문제 번호 `{number, date, tries:6, length:6, resetAt, guesses}`. 정답은 주지 않는다. 로그인이면 `guesses` 에 오늘 보낸 추측 `[{jamo, statuses}]`(새로고침 복원용), 게스트는 null |
+| POST | /api/games/word/guesses | `{number, jamo}` 자모 6개 추측 → `{statuses:[correct·present·absent ×6], seq}`. 사전에 없으면 422 `NOT_IN_DICTIONARY`, 오늘·어제 번호만 400 아님. 로그인(Bearer)이면 추측을 `word_guess` 에 저장하고 `seq`(몇 번째인지)를 준다. 여섯 번을 다 썼거나 이미 맞혔거나 끝난 문제면 400 `INVALID` |
+| POST | /api/games/word/results | `{number, attempts(1~6, 실패면 null), hard}` 한 판 종료 → `{answer:{jamo, word, meaning}, stats}`. 로그인이면 `attempts` 는 무시하고 저장된 추측으로 시도 횟수를 계산해(맞힌 추측의 seq, 여섯 번 다 틀리면 실패) `word_result` 에 하루 한 번 기록(재제출 무시)하고 이용·점수 기록도 남긴다(점수 = 7 − 시도). 아직 안 끝난 판이면 400. 게스트는 `stats` 가 null |
 | GET | /api/games/word/stats | 내 전적 `{played, won, winRate, currentStreak, maxStreak, distribution[6]}` (Bearer 필수, 401) |
 | GET | /api/games/word/dictionary/{jamo} | 사전에 있는 단어인지 `{valid}` (문제 만들기용) |
 | GET | /api/games/word/answers/{number} | 지난 문제의 정답. 오늘 이후 번호는 404 |
