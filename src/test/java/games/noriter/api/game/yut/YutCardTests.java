@@ -172,6 +172,22 @@ class YutCardTests {
     }
 
     @Test
+    void yutOrMoExtraThrowDoesNotConsumeBonusThrows() {
+        s.bonusThrows = 2;
+        s.freeThrow = true;
+        s.effects("a").chooseThrow = true;
+        game.apply(s, "a", Map.of("type", "throw", "result", "GAE"), t0);
+        assertThat(s.bonusThrows).isEqualTo(2);
+        assertThat(s.freeThrow).isFalse();
+
+        s.phase = Phase.THROW;
+        s.queue.clear();
+        s.effects("a").chooseThrow = true;
+        game.apply(s, "a", Map.of("type", "throw", "result", "DO"), t0);
+        assertThat(s.bonusThrows).isEqualTo(1);
+    }
+
+    @Test
     void restSkipsNextTurnAndClears() {
         s.effects("b").skipNext = true;
         s.phase = Phase.MOVE;
