@@ -26,6 +26,12 @@ public class PresenceTracker {
         beats.put(userId, new Heartbeat(Instant.now(clock), activity, gameId, roomId));
     }
 
+    public void touch(Long userId) {
+        beats.compute(userId, (k, b) -> b == null
+                ? new Heartbeat(Instant.now(clock), Activity.MENU, null, null)
+                : new Heartbeat(Instant.now(clock), b.activity(), b.gameId(), b.roomId()));
+    }
+
     public void clear(Long userId) {
         beats.remove(userId);
     }
