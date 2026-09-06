@@ -119,6 +119,8 @@ final class YutState implements TurnState {
     int bonusThrows;
     /** 같은 결과가 연달아 나와도 클라이언트가 새 던지기로 구분하도록 매번 올린다 */
     int throwSeq;
+    /** 직전 던지기가 윷·모라 다음 던지기는 보너스를 소모하지 않는 공짜 던지기 */
+    boolean freeThrow;
     Instant deadline;
     Map<String, Object> lastEvent = Map.of("type", "start");
     CardDraw cardDraw;
