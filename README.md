@@ -75,7 +75,7 @@ REST
 | POST | /api/conversations/{id}/messages | `{text}` 500자. 저장 뒤 양쪽 개인 채널로 `dm` 푸시 |
 | PATCH | /api/conversations/{id}/read | `{lastReadMessageId}` 읽음 커서 |
 | POST | /api/rooms/{id}/invitations | `{userId}` 방 안의 로그인 사용자가 친구를 초대 → 상대 알림. 상대가 온라인·자리 비움일 때만(바쁨·오프라인 409) |
-| POST | /api/visits | 방문 1건 기록 → `{today, total}` (프론트가 브라우저·일 단위로 한 번) |
+| POST | /api/visits | 방문 1건 기록 → `{today, total}`. 같은 방문자(IP+브라우저 해시)는 하루 한 번만 센다 |
 | GET | /api/visits | 방문 통계 |
 | GET | /actuator/health | 헬스체크 |
 
@@ -132,7 +132,7 @@ notification/ 알림 (환영·결과·최고 기록·초대)
 dm/       1:1 쪽지 (conversation · conversation_member(읽음 커서) · message, 커서 페이징)
 word/     글딱지 (꼬들형). 자모 6개 판정(WordJudge), KST 날짜 번호(WordCalendar, 2026-09-06 = 1번), 시작 시 TSV 시드(WordSeeder)
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
-visit/    방문자 수 (site_visit 일별 카운트, Asia/Seoul)
+visit/    방문자 수 (site_visit 일별 카운트 + site_visitor 일별 방문자 해시, Asia/Seoul)
 ```
 
 글딱지는 정답을 서버만 알고, 클라이언트는 추측 자모를 보내 자리별 판정만 받는다. 정답 순서표(`word_puzzle`, 779개)와 추측 사전(`word_dictionary`, 3만 1천 단어)은 `src/main/resources/word/*.tsv` 를 첫 기동 때 비어 있는 테이블에 넣는다(`noriter.word.seed=false` 로 끌 수 있음). 단어·뜻풀이는 국립국어원 표준국어대사전(공공누리 제1유형)에서, 정답 후보 선별에 쓴 단어 빈도는 FrequencyWords(OpenSubtitles, CC BY-SA)에서 가져왔다.
