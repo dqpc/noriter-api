@@ -1,6 +1,7 @@
 package games.noriter.api.user.domain;
 
 import games.noriter.api.user.Presence;
+import games.noriter.api.user.Role;
 import games.noriter.api.user.UserProfile;
 import games.noriter.api.user.UserSummary;
 import jakarta.persistence.Column;
@@ -47,6 +48,10 @@ public class AppUser {
     @Column(nullable = false, length = 16)
     private Presence presence = Presence.ONLINE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private Role role = Role.USER;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -79,6 +84,7 @@ public class AppUser {
     public String getEmail() { return email; }
     public String getCharacterId() { return characterId; }
     public Presence getPresence() { return presence; }
+    public Role getRole() { return role; }
     public Instant getCreatedAt() { return createdAt; }
 
     public void setCharacterId(String characterId) { this.characterId = characterId; }

@@ -7,6 +7,7 @@ public final class Tables {
 
     public static void clearUsers(JdbcTemplate jdbc) {
         jdbc.update("delete from notification");
+        jdbc.update("delete from game_play");
         jdbc.update("delete from game_score");
         jdbc.update("delete from friend");
         jdbc.update("delete from app_user");

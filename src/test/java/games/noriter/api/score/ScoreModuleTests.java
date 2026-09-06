@@ -27,6 +27,7 @@ class ScoreModuleTests {
     @Autowired ApplicationEventPublisher events;
     @MockitoBean UserService users;
     @Autowired JdbcTemplate jdbc;
+    @Autowired games.noriter.api.score.infra.GamePlayRepository plays;
 
     @BeforeEach
     void setUp() {
@@ -83,5 +84,17 @@ class ScoreModuleTests {
 
     static RoomFinished.Result result(String playerId, Long userId, long score, int rank) {
         return new RoomFinished.Result(playerId, userId, "n-" + playerId, score, rank);
+    }
+
+    @Test
+    void recordsPlayForEveryParticipantIncludingGuestsAndSolo() {
+        events.publishEvent(finished("yut", true, List.of(result("p1", 1L, 0, 1), result("p2", null, 0, 2))));
+        scores.recordSolo("2048", null, 512L);
+
+        assertThat(plays.findByGameIdOrderByCreatedAtAsc("yut")).hasSize(2)
+                .allMatch(p -> p.getPlayerCount() == 2 && p.getPlayMode() == games.noriter.api.score.domain.GamePlay.Mode.ROOM);
+        assertThat(plays.findByGameIdOrderByCreatedAtAsc("2048")).singleElement()
+                .matches(p -> p.getUserId() == null && p.getPlayMode() == games.noriter.api.score.domain.GamePlay.Mode.SOLO);
+        assertThat(scores.statsOf(1L)).hasSize(1);
     }
 }
