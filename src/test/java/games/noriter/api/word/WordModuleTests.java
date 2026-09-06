@@ -81,12 +81,13 @@ class WordModuleTests {
     }
 
     @Test
-    void guestFinishRevealsAnswerWithoutRecording() {
+    void guestFinishRevealsAnswerAndLeavesOnlyPlayLog() {
         var answer = words.finish(3, null, 4, false);
         assertThat(answer.word()).isEqualTo("마이크");
         assertThat(answer.meaning()).contains("소리");
         assertThat(jdbc.queryForObject("select count(*) from word_result", Long.class)).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from game_play", Long.class)).isZero();
+        // 게스트는 결과·점수 없이 이용 기록 한 줄만 (관리자 플레이 기록·통계용)
+        assertThat(jdbc.queryForObject("select count(*) from game_play where user_id is null and score is null", Long.class)).isOne();
     }
 
     private static final String WRONG = "ㅇㅣㅂㅎㅏㄱ"; // 입학: 어느 정답과도 다르다
