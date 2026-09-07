@@ -78,6 +78,9 @@ REST
 | POST | /api/rooms/{id}/invitations | `{userId}` 방 안의 로그인 사용자가 친구를 초대 → 상대 알림. 상대가 온라인·자리 비움일 때만(바쁨·오프라인 409) |
 | POST | /api/visits | 방문 1건 기록 → `{today, total}`. 같은 방문자(IP+브라우저 해시)는 하루 한 번만 센다 |
 | GET | /api/visits | 방문 통계 |
+| GET | /api/wall/posts?guestToken= | 담벼락: 오늘(KST) 낙서 목록 최신순 최대 200 `[{id, nickname, guest, characterId, content, createdAt, updatedAt, mine}]`. 어제 글은 안 보인다. `mine` 은 Bearer 사용자 또는 `guestToken` 이 쓴 글 |
+| PUT | /api/wall/posts/today | 오늘 내 낙서 쓰기·고치기(하루 한 글이라 같은 행을 고친다) `{content(1~200자, 줄바꿈 5개), guestToken?(16~64자), guestName?(1~12자), characterId?}`. Bearer 가 있으면 계정 글, 없으면 guest 필드 필수. 게스트 이름이 가입 닉네임과 같으면 409 `NICKNAME_TAKEN`, 같은 기기(IP+브라우저 해시)의 다른 게스트 토큰이 오늘 이미 썼으면 409 `ALREADY_POSTED`. `noriter.wall.guest-write=false` 면 게스트 403 |
+| DELETE | /api/wall/posts/today?guestToken= | 오늘 내 낙서 삭제(소프트). 없으면 404. 지운 뒤 다시 쓰면 같은 행이 새 글로 살아난다 |
 | GET | /actuator/health | 헬스체크 |
 
 WebSocket `/ws/rooms/{id}` — JSON, `type` 필드로 구분
@@ -135,6 +138,7 @@ dm/       1:1 쪽지 (conversation · conversation_member(읽음 커서) · mess
 word/     글딱지 (꼬들형). 자모 6개 판정(WordJudge), KST 날짜 번호(WordCalendar, 2026-09-06 = 1번), 시작 시 TSV 시드(WordSeeder; 테이블이 차 있으면 정답 뜻풀이만 파일과 맞춤)
 room/     방·대전·채팅   domain/ Room  infra/ 메모리 저장소·WebSocket 세션  web/ 컨트롤러·핸들러·DTO
 visit/    방문자 수 (site_visit 일별 카운트 + site_visitor 일별 방문자 해시, Asia/Seoul)
+wall/     담벼락 (wall_post: 하루 한 줄 낙서, 계정 또는 게스트 토큰, deleted_at 직접 관리 — 같은 날 재작성이 지운 행을 되살림)
 ```
 
 글딱지는 정답을 서버만 알고, 클라이언트는 추측 자모를 보내 자리별 판정만 받는다. 정답 순서표(`word_puzzle`, 779개)와 추측 사전(`word_dictionary`, 3만 1천 단어)은 `src/main/resources/word/*.tsv` 를 첫 기동 때 비어 있는 테이블에 넣는다(`noriter.word.seed=false` 로 끌 수 있음). 단어·뜻풀이는 국립국어원 표준국어대사전(공공누리 제1유형)에서, 정답 후보 선별에 쓴 단어 빈도는 FrequencyWords(OpenSubtitles, CC BY-SA)에서 가져왔다.
